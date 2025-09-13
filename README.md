@@ -35,8 +35,8 @@ Agent Logic (LangChain, base_agent)
         ▼
  Adapter Registry
         │
-  ┌─────┼─────────────┬────────────┬─────────────┐
-  ▼     ▼             ▼            ▼             ▼
+  ┌─────┼─────────────┬────────────┬─────────────┐─────────────┐
+  ▼     ▼             ▼            ▼             ▼             ▼
 LangServe   MCP Adapter   A2A Adapter   ACP Adapter   Webhook Adapter
 (REST/WS)   (/mcp/*)      (/a2a/*)      (/acp/*)      (/webhook/*)
 ```
@@ -174,8 +174,7 @@ app = create_app(MyCustomAgent())
 
 - **🤖 A2A** - Agent-to-Agent communication protocol
 - **📡 ACP** - Agent Communication Protocol
-- **🔌 gRPC** - High-performance gRPC adapter
-- **📱 Mobile** - Mobile SDK adapters
+
 
 ## 🔧 Configuration
 
@@ -263,12 +262,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [FastAPI](https://github.com/tiangolo/fastapi) for the excellent web framework
 - [LangServe](https://github.com/langchain-ai/langserve) for the REST API foundation
 
-## 📞 Support
-
-- 📧 Email: support@superagentserver.dev
-- 💬 Discord: [Join our community](https://discord.gg/superagentserver)
-- 🐛 Issues: [GitHub Issues](https://github.com/superagentserver/super-agent-server/issues)
-
----
-
-**Made with ❤️ by the SuperAgentServer team**
