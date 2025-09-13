@@ -7,6 +7,7 @@ Main FastAPI server that exposes LangChain agents across multiple protocols.
 import os
 import logging
 from typing import Dict, Any, Optional
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -29,33 +30,16 @@ adapter_registry = AdapterRegistry()
 adapter_registry.register_adapter_type("mcp", MCPAdapter)
 adapter_registry.register_adapter_type("webhook", WebhookAdapter)
 
-# Create FastAPI app
-app = FastAPI(
-    title="SuperAgentServer",
-    description="Universal Agent Adapter Layer for LangChain agents",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Global agent instance
 agent: Optional[BaseAgent] = None
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the server on startup."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events."""
     global agent
     
+    # Startup
     logger.info("Starting SuperAgentServer...")
     
     # Initialize the example agent
@@ -63,6 +47,7 @@ async def startup_event():
     if not openai_api_key:
         logger.warning("OPENAI_API_KEY not set, using mock agent")
         # You could create a mock agent here for testing
+        yield
         return
     
     try:
@@ -95,6 +80,32 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to start SuperAgentServer: {e}")
         raise
+    
+    # Yield control back to the application
+    yield
+    
+    # Shutdown (if needed)
+    logger.info("Shutting down SuperAgentServer...")
+
+
+# Create FastAPI app with lifespan
+app = FastAPI(
+    title="SuperAgentServer",
+    description="Universal Agent Adapter Layer for LangChain agents",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
