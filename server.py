@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from langserve import add_routes
 import uvicorn
 from dotenv import load_dotenv
 
@@ -55,7 +56,7 @@ async def lifespan(app: FastAPI):
         return
     
     try:
-        agent = ExampleAgent(openai_api_key=openai_api_key)
+        agent = ExampleAgent()
         await agent.initialize()
         
         # Create and register adapters
@@ -78,6 +79,14 @@ async def lifespan(app: FastAPI):
         # Register all adapters with the app
         adapter_registry.register_all_with_app(app)
         
+        # Add LangServe routes for streaming, which creates /chat/stream
+        if agent.agent_executor:
+            logger.info("Adding LangServe streaming endpoint at /chat")
+            add_routes(
+                app,
+                agent.agent_executor,
+                path="/chat"
+            )
         logger.info("SuperAgentServer started successfully")
         logger.info(f"Available adapters: {list(adapter_registry.get_all_adapters().keys())}")
         

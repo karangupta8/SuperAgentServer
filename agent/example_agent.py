@@ -1,108 +1,109 @@
 """
 Example LangChain agent implementation.
 """
-
+import os
 from typing import Any, Dict, List, Optional
-from langchain_community.llms import OpenAI
-from langchain.agents import AgentType, initialize_agent, Tool
-from langchain.memory import ConversationBufferMemory
-from langchain.schema import BaseMessage, HumanMessage, AIMessage
+from datetime import datetime
 
-from .base_agent import BaseAgent, AgentRequest, AgentResponse
+from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.tools import tool
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_openai import ChatOpenAI
 
+from .base_agent import AgentRequest, AgentResponse, BaseAgent
+
+# Load the OpenAI API key from environment variables.
+# This is a better practice than passing it in the constructor.
+if os.getenv("OPENAI_API_KEY", None) is None:
+    raise ValueError("OPENAI_API_KEY environment variable not set.")
 
 class ExampleAgent(BaseAgent):
     """
     Example implementation of a LangChain agent.
-    
+
     This demonstrates how to wrap a LangChain agent in the BaseAgent interface.
     """
-    
-    def __init__(self, openai_api_key: str, model_name: str = "gpt-3.5-turbo"):
+
+    def __init__(self):
         super().__init__(
             name="example-agent",
-            description="A simple example agent using OpenAI and LangChain"
+            description="A simple example agent using OpenAI and LangChain",
         )
-        self.openai_api_key = openai_api_key
-        self.model_name = model_name
-        self.llm = None
-        self.agent = None
-        self.memory = None
-    
+        self.agent_executor: Optional[AgentExecutor] = None
+        self.chat_history: Dict[str, List[HumanMessage | AIMessage]] = {}
+
     async def initialize(self) -> None:
         """Initialize the LangChain agent."""
-        # Initialize the LLM
-        self.llm = OpenAI(
-            openai_api_key=self.openai_api_key,
-            model_name=self.model_name,
-            temperature=0.7
-        )
-        
-        # Create memory for conversation continuity
-        self.memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True
-        )
-        
-        # Define some example tools
-        def get_weather(location: str) -> str:
-            """Get the current weather for a location."""
-            return f"The weather in {location} is sunny and 72°F"
-        
-        def get_time() -> str:
-            """Get the current time."""
-            from datetime import datetime
-            return f"The current time is {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        
-        tools = [
-            Tool(
-                name="get_weather",
-                description="Get the current weather for a location",
-                func=get_weather
-            ),
-            Tool(
-                name="get_time",
-                description="Get the current time",
-                func=get_time
+        try:
+            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+            @tool
+            def get_weather(location: str) -> str:
+                """Get the current weather for a location."""
+                return f"The weather in {location} is sunny and 72°F"
+
+            @tool
+            def get_time() -> str:
+                """Get the current time."""
+                return f"The current time is {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+
+            tools = [get_weather, get_time]
+
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    (
+                        "system",
+                        "You are a helpful assistant. You have access to the following tools.",
+                    ),
+                    MessagesPlaceholder(variable_name="chat_history"),
+                    ("user", "{input}"),
+                    MessagesPlaceholder(variable_name="agent_scratchpad"),
+                ]
             )
-        ]
-        
-        # Initialize the agent
-        self.agent = initialize_agent(
-            tools=tools,
-            llm=self.llm,
-            agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION,
-            memory=self.memory,
-            verbose=True
-        )
-    
+
+            agent = create_openai_tools_agent(llm, tools, prompt)
+            self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+            print("ExampleAgent initialized successfully.")
+        except Exception as e:
+            print(f"Error initializing ExampleAgent: {e!s}")
+            self.agent_executor = None
+
     async def process(self, request: AgentRequest) -> AgentResponse:
         """Process a request using the LangChain agent."""
-        try:
-            # Run the agent
-            result = self.agent.run(input=request.message)
-            
-            # Extract tools used (simplified - in practice you'd parse the agent's execution)
-            tools_used = []
-            if "get_weather" in request.message.lower():
-                tools_used.append("get_weather")
-            if "time" in request.message.lower():
-                tools_used.append("get_time")
-            
+        if not self.agent_executor:
             return AgentResponse(
-                message=str(result),
+                message="Error: Agent not initialized. Please check server logs.",
+            )
+
+        session_id = request.session_id or "default_session"
+        chat_history = self.chat_history.get(session_id, [])
+
+        try:
+            response = await self.agent_executor.ainvoke(
+                {"input": request.message, "chat_history": chat_history},
+            )
+            output_message = response.get("output", "Sorry, I had trouble processing that.")
+
+            # Update chat history
+            self.chat_history.setdefault(session_id, []).extend(
+                [
+                    HumanMessage(content=request.message),
+                    AIMessage(content=output_message),
+                ]
+            )
+
+            return AgentResponse(
+                message=output_message,
                 session_id=request.session_id,
-                metadata=request.metadata,
-                tools_used=tools_used
             )
         except Exception as e:
+            print(f"Error processing request for session {session_id}: {e!s}")
             return AgentResponse(
-                message=f"Error processing request: {str(e)}",
+                message=f"Error processing request: {e!s}",
                 session_id=request.session_id,
-                metadata={"error": str(e)},
-                tools_used=[]
             )
-    
+
     def get_schema(self) -> Dict[str, Any]:
         """Get the agent's schema for adapter generation."""
         return {
@@ -111,53 +112,18 @@ class ExampleAgent(BaseAgent):
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "The input message to the agent"
-                    },
-                    "session_id": {
-                        "type": "string",
-                        "description": "Session identifier for conversation continuity"
-                    },
-                    "metadata": {
-                        "type": "object",
-                        "description": "Additional metadata"
-                    },
-                    "tools": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Available tools for the agent to use"
-                    }
+                    "message": {"type": "string", "description": "The input message to the agent", "example": "What time is it?"},
+                    "session_id": {"type": "string", "description": "Session identifier for conversation continuity", "example": "user123_session456"},
                 },
-                "required": ["message"]
+                "required": ["message"],
             },
             "output_schema": {
                 "type": "object",
                 "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "The agent's response message"
-                    },
-                    "session_id": {
-                        "type": "string",
-                        "description": "Session identifier"
-                    },
-                    "metadata": {
-                        "type": "object",
-                        "description": "Additional response metadata"
-                    },
-                    "tools_used": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Tools used in generating the response"
-                    },
-                    "timestamp": {
-                        "type": "string",
-                        "format": "date-time",
-                        "description": "Response timestamp"
-                    }
+                    "message": {"type": "string", "description": "The agent's response message", "example": "The current time is 2025-09-13 19:15:30"},
+                    "session_id": {"type": "string", "description": "Session identifier", "example": "user123_session456"},
                 },
-                "required": ["message", "timestamp"]
+                "required": ["message"],
             },
             "tools": [
                 {
@@ -165,13 +131,8 @@ class ExampleAgent(BaseAgent):
                     "description": "Get the current weather for a location",
                     "parameters": {
                         "type": "object",
-                        "properties": {
-                            "location": {
-                                "type": "string",
-                                "description": "The location to get weather for"
-                            }
-                        },
-                        "required": ["location"]
+                        "properties": {"location": {"type": "string", "description": "The location to get weather for"}},
+                        "required": ["location"],
                     }
                 },
                 {
@@ -179,8 +140,8 @@ class ExampleAgent(BaseAgent):
                     "description": "Get the current time",
                     "parameters": {
                         "type": "object",
-                        "properties": {}
-                    }
-                }
-            ]
+                        "properties": {},
+                    },
+                },
+            ],
         }

@@ -74,6 +74,14 @@ pip install -r requirements.txt
         -d '{"message": "Hello, how are you?"}'
    ```
 
+> **Note for Windows Users:** If you are using PowerShell, `curl` is an alias for `Invoke-WebRequest` which has a different syntax. Use this command instead:
+> ```powershell
+> Invoke-WebRequest -Uri "http://localhost:8000/agent/chat" `
+>   -Method POST `
+>   -Headers @{"Content-Type"="application/json"} `
+>   -Body '{"message": "Hello, how are you?"}'
+> ```
+
 ## 📖 Usage Examples
 
 ### Direct Agent Chat
@@ -261,4 +269,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [LangChain](https://github.com/langchain-ai/langchain) for the amazing agent framework
 - [FastAPI](https://github.com/tiangolo/fastapi) for the excellent web framework
 - [LangServe](https://github.com/langchain-ai/langserve) for the REST API foundation
-
