@@ -3,7 +3,7 @@ Example LangChain agent implementation.
 """
 
 from typing import Any, Dict, List, Optional
-from langchain.llms import OpenAI
+from langchain_community.llms import OpenAI
 from langchain.agents import AgentType, initialize_agent, Tool
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import BaseMessage, HumanMessage, AIMessage
