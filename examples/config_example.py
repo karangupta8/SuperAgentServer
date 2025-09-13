@@ -4,6 +4,11 @@ Configuration examples for different deployment scenarios.
 
 import os
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 from agent.example_agent import ExampleAgent
 from adapters.base_adapter import AdapterConfig
 from adapters.schema_generator import SchemaGenerator

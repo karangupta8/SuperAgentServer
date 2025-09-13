@@ -4,7 +4,7 @@ SuperAgentServer - Universal Agent Adapter Layer
 Main FastAPI server that exposes LangChain agents across multiple protocols.
 """
 
-import os
+import os   
 import logging
 from typing import Dict, Any, Optional
 from contextlib import asynccontextmanager
@@ -12,12 +12,16 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
+from dotenv import load_dotenv
 
 from agent.base_agent import BaseAgent, AgentRequest, AgentResponse
 from agent.example_agent import ExampleAgent
 from adapters.base_adapter import AdapterRegistry, AdapterConfig
 from adapters.mcp_adapter import MCPAdapter
 from adapters.webhook_adapter import WebhookAdapter
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

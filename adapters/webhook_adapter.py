@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from .base_adapter import BaseAdapter, AdapterConfig
 from agent.base_agent import AgentRequest, AgentResponse
