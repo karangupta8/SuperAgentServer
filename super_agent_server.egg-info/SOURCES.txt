@@ -1,0 +1,16 @@
+LICENSE
+README.md
+pyproject.toml
+adapters/__init__.py
+adapters/base_adapter.py
+adapters/mcp_adapter.py
+adapters/schema_generator.py
+adapters/webhook_adapter.py
+agent/__init__.py
+agent/base_agent.py
+agent/example_agent.py
+super_agent_server.egg-info/PKG-INFO
+super_agent_server.egg-info/SOURCES.txt
+super_agent_server.egg-info/dependency_links.txt
+super_agent_server.egg-info/requires.txt
+super_agent_server.egg-info/top_level.txt
