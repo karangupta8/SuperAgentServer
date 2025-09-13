@@ -159,34 +159,55 @@ app = create_app(agent)
 
 ### Telegram Bot Integration
 
-1. **Set up webhook in Telegram:**
+1. **Get your bot token from @BotFather on Telegram**
+
+2. **Set up webhook in Telegram:**
    ```bash
    curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
-        -d "url=https://your-domain.com/webhook/telegram"
+        -d "url=${WEBHOOK_BASE_URL}/webhook/telegram"
    ```
 
-2. **Your bot will now receive messages at:**
+3. **Configure your bot token in .env:**
+   ```bash
+   TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
    ```
-   POST https://your-domain.com/webhook/telegram
+
+4. **Your bot will now receive messages and respond automatically at:**
+   ```
+   POST ${WEBHOOK_BASE_URL}/webhook/telegram
    ```
 
 ### Slack Integration
 
-1. **Create a Slack app and set webhook URL:**
+1. **Create a Slack app and get your bot token from the OAuth & Permissions page**
+
+2. **Set webhook URL in your Slack app:**
    ```
-   https://your-domain.com/webhook/slack
+   ${WEBHOOK_BASE_URL}/webhook/slack
    ```
 
-2. **Configure your Slack app to send messages to this endpoint**
+3. **Configure your bot token in .env:**
+   ```bash
+   SLACK_BOT_TOKEN=xoxb-your-slack-bot-token-here
+   ```
+
+4. **Configure your Slack app to send messages to this endpoint**
 
 ### Discord Integration
 
-1. **Set up webhook in Discord:**
+1. **Create a Discord application and get your bot token from the Bot section**
+
+2. **Set up webhook in Discord:**
    ```
-   https://your-domain.com/webhook/discord
+   ${WEBHOOK_BASE_URL}/webhook/discord
    ```
 
-2. **Configure your Discord bot to send messages to this endpoint**
+3. **Configure your bot token in .env:**
+   ```bash
+   DISCORD_BOT_TOKEN=your_discord_bot_token_here
+   ```
+
+4. **Configure your Discord bot to send messages to this endpoint**
 
 ### MCP Client Integration
 
@@ -349,3 +370,34 @@ def cached_response(message: str) -> str:
 3. **Rate Limiting:** Implement rate limiting for production use
 4. **Input Validation:** Validate all inputs to prevent injection attacks
 5. **HTTPS:** Use HTTPS in production environments
+
+## Summary of Changes:
+
+### 1. **Updated `env.example`:**
+- Added `TELEGRAM_BOT_TOKEN` for Telegram bot authentication
+- Added `SLACK_BOT_TOKEN` for Slack bot authentication  
+- Added `DISCORD_BOT_TOKEN` for Discord bot authentication
+- Added `WEBHOOK_BASE_URL` for configurable webhook URLs
+
+### 2. **Enhanced `adapters/webhook_adapter.py`:**
+- Added bot token initialization in constructor
+- Added `_send_telegram_message()` method to send responses back to Telegram
+- Added `_send_slack_message()` method to send responses back to Slack
+- Added `_send_discord_message()` method to send responses back to Discord
+- Modified webhook endpoints to automatically send responses back to users
+- Updated message parsing to use correct IDs for sending responses
+
+### 3. **Updated `docs/USAGE_GUIDE.md`:**
+- Added instructions for getting bot tokens from each platform
+- Added `.env` configuration steps for each platform
+- Updated webhook setup instructions to use environment variables
+
+## How it works now:
+
+1. **Developer sets up bot tokens** in their `.env` file
+2. **Webhook receives message** from platform (Telegram/Slack/Discord)
+3. **Agent processes the message** and generates a response
+4. **Webhook automatically sends the response back** to the user on the same platform
+5. **User receives the response** directly in their chat
+
+The bot will now have full two-way communication with users on all supported platforms!

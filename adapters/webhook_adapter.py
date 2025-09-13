@@ -2,6 +2,8 @@
 Webhook adapter for external integrations (Telegram, Slack, etc.).
 """
 
+import os
+import httpx
 from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
@@ -37,6 +39,12 @@ class WebhookAdapter(BaseAdapter):
     with various platforms like Telegram, Slack, Discord, etc.
     """
     
+    def __init__(self, agent, config: AdapterConfig):
+        super().__init__(agent, config)
+        self.telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        self.slack_token = os.getenv("SLACK_BOT_TOKEN")
+        self.discord_token = os.getenv("DISCORD_BOT_TOKEN")
+    
     def _setup_routes(self) -> None:
         """Set up webhook-specific routes."""
         
@@ -57,7 +65,16 @@ class WebhookAdapter(BaseAdapter):
             try:
                 data = await request.json()
                 message_data = self._parse_telegram_message(data)
-                return await self._process_request(message_data)
+                response = await self._process_request(message_data)
+                
+                # Send response back to Telegram if token is configured
+                if self.telegram_token and message_data.get("user_id"):
+                    await self._send_telegram_message(
+                        chat_id=message_data["user_id"],
+                        text=response["message"]
+                    )
+                
+                return response
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid Telegram webhook: {str(e)}")
         
@@ -67,7 +84,16 @@ class WebhookAdapter(BaseAdapter):
             try:
                 data = await request.json()
                 message_data = self._parse_slack_message(data)
-                return await self._process_request(message_data)
+                response = await self._process_request(message_data)
+                
+                # Send response back to Slack if token is configured
+                if self.slack_token and message_data.get("session_id"):
+                    await self._send_slack_message(
+                        channel=message_data["session_id"],
+                        text=response["message"]
+                    )
+                
+                return response
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid Slack webhook: {str(e)}")
         
@@ -77,7 +103,16 @@ class WebhookAdapter(BaseAdapter):
             try:
                 data = await request.json()
                 message_data = self._parse_discord_message(data)
-                return await self._process_request(message_data)
+                response = await self._process_request(message_data)
+                
+                # Send response back to Discord if token is configured
+                if self.discord_token and message_data.get("session_id"):
+                    await self._send_discord_message(
+                        channel_id=message_data["session_id"],
+                        content=response["message"]
+                    )
+                
+                return response
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid Discord webhook: {str(e)}")
         
@@ -134,13 +169,14 @@ class WebhookAdapter(BaseAdapter):
         
         return {
             "message": text,
-            "user_id": user_id,
+            "user_id": chat_id,  # Use chat_id for sending responses
             "session_id": chat_id,
             "platform": "telegram",
             "metadata": {
                 "message_id": message.get("message_id"),
                 "chat_type": message.get("chat", {}).get("type"),
-                "username": message.get("from", {}).get("username")
+                "username": message.get("from", {}).get("username"),
+                "user_id": user_id  # Keep original user_id in metadata
             }
         }
     
@@ -179,6 +215,68 @@ class WebhookAdapter(BaseAdapter):
                 "message_id": data.get("id")
             }
         }
+    
+    async def _send_telegram_message(self, chat_id: str, text: str) -> None:
+        """Send message back to Telegram."""
+        if not self.telegram_token:
+            return
+        
+        url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "Markdown"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+            except Exception as e:
+                print(f"Failed to send Telegram message: {e}")
+    
+    async def _send_slack_message(self, channel: str, text: str) -> None:
+        """Send message back to Slack."""
+        if not self.slack_token:
+            return
+        
+        url = "https://slack.com/api/chat.postMessage"
+        headers = {
+            "Authorization": f"Bearer {self.slack_token}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "channel": channel,
+            "text": text
+        }
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+            except Exception as e:
+                print(f"Failed to send Slack message: {e}")
+    
+    async def _send_discord_message(self, channel_id: str, content: str) -> None:
+        """Send message back to Discord."""
+        if not self.discord_token:
+            return
+        
+        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+        headers = {
+            "Authorization": f"Bot {self.discord_token}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "content": content
+        }
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+            except Exception as e:
+                print(f"Failed to send Discord message: {e}")
     
     def get_manifest(self) -> Dict[str, Any]:
         """Get the webhook adapter manifest."""
