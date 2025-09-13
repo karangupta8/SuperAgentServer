@@ -23,7 +23,32 @@ def main():
     """Main entry point."""
     print("🚀 Starting SuperAgentServer...")
     print("=" * 50)
+
+    # Check for minimum Python version
+    if sys.version_info < (3, 8):
+        print(f"❌ Error: Your Python version is {sys.version_info.major}.{sys.version_info.minor}.")
+        print("   SuperAgentServer requires Python 3.8 or newer.")
+        print("   Please create a new virtual environment with a compatible Python version.")
+        sys.exit(1)
     
+    # Check for critical dependency versions
+    try:
+        from importlib.metadata import version, PackageNotFoundError
+        ws_version = version("websockets")
+        if tuple(map(int, ws_version.split('.'))) < (12, 0):
+            print(f"❌ Error: Your websockets version is {ws_version}, but >=12.0 is required.")
+            print("   This can cause unexpected errors with streaming.")
+            print("   Please run: pip install --force-reinstall --no-cache-dir -r requirements.txt")
+            sys.exit(1)
+    except (ImportError, PackageNotFoundError):
+        # Fallback for older Python or if a package is missing
+        print("⚠️  Warning: Could not verify dependency versions.")
+        print("   If you encounter errors, please ensure your packages are up to date:")
+        print("   pip install --force-reinstall --no-cache-dir -r requirements.txt")
+        print()
+        pass # Don't exit, just warn
+
+
     # Check for required environment variables
     if not os.getenv("OPENAI_API_KEY"):
         print("⚠️  Warning: OPENAI_API_KEY not set")

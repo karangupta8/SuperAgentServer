@@ -11,14 +11,18 @@ async def run_websocket_test():
     print(f"🚀 Connecting to WebSocket at {uri}")
 
     try:
-        async with websockets.connect(uri) as websocket:
+        # Add an Origin header to satisfy the server's CORS policy.
+        # This is the standard way to add headers with a modern `websockets` library.
+        async with websockets.connect(
+            uri, extra_headers={"Origin": "http://localhost"}
+        ) as websocket:
             print("✅ Connected! Sending a message to the agent...")
 
             # The input format for the agent_executor is a dictionary
             # with an "input" key.
             input_data = {
                 "input": {
-                    "input": "What time is it?",
+                    "input": "What time is it in Amsterdam and SF, Cali?",
                     "chat_history": [] # You can manage chat history here
                 }
             }
@@ -51,4 +55,3 @@ async def run_websocket_test():
 
 if __name__ == "__main__":
     asyncio.run(run_websocket_test())
-
