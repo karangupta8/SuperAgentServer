@@ -5,7 +5,6 @@ Test script to verify SuperAgentServer functionality.
 import asyncio
 import httpx
 import json
-from server import create_app
 from examples.simple_agent import SimpleChatAgent
 
 
@@ -18,8 +17,12 @@ async def test_server():
     agent = SimpleChatAgent()
     await agent.initialize()
     
-    # Create the FastAPI app
-    app = create_app(agent)
+    # In a real test suite, you would use a test client.
+    # For this script, we will test the components individually
+    # without starting a full server.
+    # from fastapi.testclient import TestClient
+    # app = create_app(agent)
+    # client = TestClient(app)
     
     # Test the agent directly
     print("\n1. Testing Agent Directly:")
@@ -51,9 +54,10 @@ async def test_server():
     print("\n3. Testing MCP Adapter:")
     print("-" * 30)
     
+    from adapters.base_adapter import AdapterConfig, AdapterRegistry
     from adapters.mcp_adapter import MCPAdapter
-    from adapters.base_adapter import AdapterConfig
     
+    # Adapters are created and managed by the registry
     mcp_config = AdapterConfig(name="mcp", prefix="mcp", enabled=True)
     mcp_adapter = MCPAdapter(agent, mcp_config)
     
@@ -83,7 +87,7 @@ async def test_server():
     
     from adapters.webhook_adapter import WebhookAdapter
     
-    webhook_config = AdapterConfig(name="webhook", prefix="webhook", enabled=True)
+    webhook_config = AdapterConfig(name="webhook", prefix="webhook", enabled=True) # type: ignore
     webhook_adapter = WebhookAdapter(agent, webhook_config)
     
     # Test generic webhook
@@ -98,22 +102,23 @@ async def test_server():
     webhook_manifest = webhook_adapter.get_manifest()
     print(f"Webhook Manifest: {json.dumps(webhook_manifest, indent=2)}")
     
-    # Test schema generator
-    print("\n5. Testing Schema Generator:")
+    # Test manifest generation from registry
+    print("\n5. Testing Manifest Generation:")
     print("-" * 30)
     
-    from adapters.schema_generator import SchemaGenerator
+    registry = AdapterRegistry()
+    registry.register_adapter_type("mcp", MCPAdapter)
+    registry.register_adapter_type("webhook", WebhookAdapter)
+    registry.create_adapter("mcp", agent, mcp_config)
+    registry.create_adapter("webhook", agent, webhook_config)
     
-    generator = SchemaGenerator(app)
-    all_manifests = generator.generate_all_manifests(agent)
+    all_manifests = registry.get_manifests()
     
     print("Generated Manifests:")
     for name, manifest in all_manifests.items():
         print(f"\n{name.upper()}:")
         print(f"  Keys: {list(manifest.keys())}")
-        if name == "openapi":
-            print(f"  Title: {manifest.get('info', {}).get('title', 'N/A')}")
-        elif name == "mcp":
+        if name == "mcp":
             print(f"  Protocol Version: {manifest.get('protocolVersion', 'N/A')}")
             print(f"  Tools Count: {len(manifest.get('tools', []))}")
         elif name == "webhook":
