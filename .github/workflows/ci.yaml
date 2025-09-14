@@ -23,7 +23,7 @@ jobs:
         cache: 'pip'
         cache-dependency-path: |
           requirements.txt
-          config/requirements-dev.txt
+          **/requirements-dev.txt
     
     - name: Install dependencies
       run: |
