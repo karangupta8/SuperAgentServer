@@ -35,7 +35,8 @@ class MCPAdapter(BaseAdapter):
     """
     MCP adapter for exposing agents via the Model Context Protocol.
     
-    This adapter maps agent functionality to MCP tools and resources.
+    This adapter properly exposes the agent's API as MCP tools instead of
+    creating artificial wrapper tools.
     """
     
     def _setup_routes(self) -> None:
@@ -97,8 +98,9 @@ class MCPAdapter(BaseAdapter):
                 tool_name = params.get("name")
                 tool_args = params.get("arguments", {})
                 
-                if tool_name == "agent_chat":
-                    # Convert MCP tool call to agent request
+                # The main tool is the agent's chat capability
+                if tool_name == "chat":
+                    # Convert MCP tool call to agent request using the agent's actual input schema
                     agent_request = AgentRequest(
                         message=tool_args.get("message", ""),
                         session_id=tool_args.get("session_id"),
@@ -149,6 +151,27 @@ class MCPAdapter(BaseAdapter):
                         },
                         request_id=request_id
                     )
+                elif resource_uri == "agent://capabilities":
+                    schema = self.agent.get_schema()
+                    capabilities = {
+                        "agent_name": self.agent.name,
+                        "description": self.agent.description,
+                        "available_tools": schema.get("tools", []),
+                        "input_schema": schema.get("input_schema", {}),
+                        "output_schema": schema.get("output_schema", {})
+                    }
+                    return self._create_mcp_response(
+                        result={
+                            "contents": [
+                                {
+                                    "uri": resource_uri,
+                                    "mimeType": "application/json",
+                                    "text": str(capabilities)
+                                }
+                            ]
+                        },
+                        request_id=request_id
+                    )
                 else:
                     raise HTTPException(status_code=404, detail=f"Resource not found: {resource_uri}")
             
@@ -179,49 +202,16 @@ class MCPAdapter(BaseAdapter):
         return response
     
     def _get_mcp_tools(self) -> List[Dict[str, Any]]:
-        """Get MCP tools from agent schema."""
+        """Get MCP tools from agent schema - exposes the agent's actual API."""
         schema = self.agent.get_schema()
-        tools = []
         
-        # Add the main agent chat tool
-        tools.append({
-            "name": "agent_chat",
-            "description": f"Chat with the {self.agent.name} agent",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "The message to send to the agent"
-                    },
-                    "session_id": {
-                        "type": "string",
-                        "description": "Session ID for conversation continuity"
-                    },
-                    "metadata": {
-                        "type": "object",
-                        "description": "Additional metadata"
-                    },
-                    "tools": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Available tools"
-                    }
-                },
-                "required": ["message"]
-            }
-        })
-        
-        # Add agent-specific tools
-        if "tools" in schema:
-            for tool in schema["tools"]:
-                tools.append({
-                    "name": f"agent_{tool['name']}",
-                    "description": tool["description"],
-                    "inputSchema": tool["parameters"]
-                })
-        
-        return tools
+        # Expose the agent's main chat capability as a single MCP tool
+        # This uses the agent's actual input schema instead of creating artificial schemas
+        return [{
+            "name": "chat",
+            "description": f"Chat with the {self.agent.name} agent. {self.agent.description}",
+            "inputSchema": schema["input_schema"]
+        }]
     
     def _get_mcp_resources(self) -> List[Dict[str, Any]]:
         """Get MCP resources."""
@@ -229,15 +219,19 @@ class MCPAdapter(BaseAdapter):
             {
                 "uri": "agent://schema",
                 "name": f"{self.agent.name} Schema",
-                "description": f"Schema for {self.agent.name} agent",
+                "description": f"Complete schema for {self.agent.name} agent including input/output formats and available tools",
+                "mimeType": "application/json"
+            },
+            {
+                "uri": "agent://capabilities",
+                "name": f"{self.agent.name} Capabilities",
+                "description": f"Available capabilities and tools for {self.agent.name} agent",
                 "mimeType": "application/json"
             }
         ]
     
     def get_manifest(self) -> Dict[str, Any]:
         """Get the MCP manifest."""
-        schema = self.agent.get_schema()
-        
         return {
             "protocolVersion": "2024-11-05",
             "capabilities": {

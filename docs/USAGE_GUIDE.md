@@ -54,14 +54,23 @@ curl -X POST "http://localhost:8000/mcp/tools/list" \
      -H "Content-Type: application/json" \
      -d '{}'
 
+> **PowerShell:**
+> ```powershell
+> # List available tools
+> Invoke-RestMethod -Uri "http://localhost:8000/mcp/tools/list" -Method Post -ContentType "application/json" -Body '{}'
+> ```
+
 # Call a tool
 curl -X POST "http://localhost:8000/mcp/tools/call" \
      -H "Content-Type: application/json" \
      -d '{
-       "name": "agent_chat",
-       "arguments": {
-         "message": "What is the weather like?",
-         "session_id": "session123"
+       "method": "tools/call",
+       "params": {
+         "name": "chat",
+         "arguments": {
+           "message": "What is the weather like?",
+           "session_id": "session123"
+         }
        }
      }'
 ```
@@ -218,29 +227,230 @@ app = create_app(agent)
 
 4. **Configure your Discord bot to send messages to this endpoint**
 
-### MCP Client Integration
 
-```python
-import httpx
 
-async def call_agent_via_mcp(message: str):
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "http://localhost:8000/mcp/tools/call",
-            json={
-                "name": "agent_chat",
-                "arguments": {
-                    "message": message,
-                    "session_id": "my-session"
-                }
-            }
-        )
-        return response.json()
+# Testing the MCP (Model Context Protocol) Adapter
 
-# Usage
-result = await call_agent_via_mcp("Hello!")
-print(result["result"]["content"][0]["text"])
+The MCP adapter makes your agent universally accessible by exposing it through a standard protocol.
+This guide walks you through testing the MCP adapter step by step.
+
+---
+
+## Step 1: Run the Server
+
+First, start the server:
+
+```bash
+python server.py
 ```
+
+You should see output similar to:
+
+```
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+```
+
+---
+
+## Step 2: Check the MCP Manifest
+
+The **manifest** describes your agent's capabilities to any MCP client.
+
+Run:
+
+```bash
+curl http://localhost:8000/mcp/manifest
+```
+
+Example response:
+
+```json
+{
+  "protocolVersion": "2024-11-05",
+  "capabilities": { "tools": {}, "resources": {} },
+  "serverInfo": {
+    "name": "example-agent-mcp",
+    "version": "0.1.0",
+    "description": "MCP adapter for example-agent agent"
+  },
+  "tools": [
+    {
+      "name": "chat",
+      "description": "Chat with the example-agent agent. A simple example agent using OpenAI and LangChain",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "The input message to the agent",
+            "example": "What time is it?"
+          },
+          "session_id": {
+            "type": "string",
+            "description": "Session identifier for conversation continuity",
+            "example": "user123_session456"
+          }
+        },
+        "required": ["message"]
+      }
+    }
+  ],
+  "resources": [
+    {
+      "uri": "agent://schema",
+      "name": "example-agent Schema",
+      "description": "Complete schema for example-agent agent including input/output formats and available tools",
+      "mimeType": "application/json"
+    },
+    {
+      "uri": "agent://capabilities",
+      "name": "example-agent Capabilities",
+      "description": "Available capabilities and tools for example-agent agent",
+      "mimeType": "application/json"
+    }
+  ]
+}
+```
+
+---
+
+## Step 3: List Available Tools
+
+Use the `/mcp/tools/list` endpoint:
+
+```bash
+curl -X POST "http://localhost:8000/mcp/tools/list" \
+     -H "Content-Type: application/json" \
+     -d '{}'
+```
+
+This should return a JSON object listing available tools (e.g., `chat`).
+
+---
+
+## Step 4: Call the Agent via MCP
+
+Interact with your agent by calling the `chat` tool:
+
+```bash
+curl -X POST "http://localhost:8000/mcp/tools/call" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "method": "tools/call",
+       "params": {
+         "name": "chat",
+         "arguments": {
+           "message": "Hello from an MCP client!",
+           "session_id": "mcp-test-session-123"
+         }
+       }
+     }'
+```
+
+> **PowerShell:**
+> ```powershell
+> $body = @{
+>   method = "tools/call"
+>   params = @{
+>     name = "chat"
+>     arguments = @{
+>       message = "Hello from an MCP client!"
+>       session_id = "mcp-test-session-123"
+>     }
+>   }
+> } | ConvertTo-Json -Depth 3
+> 
+> Invoke-RestMethod -Uri "http://localhost:8000/mcp/tools/call" -Method Post -ContentType "application/json" -Body $body
+> ```
+
+Example response:
+
+```json
+{
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Hello! I'm an AI assistant. How can I help you today?"
+      }
+    ],
+    "metadata": {
+      "session_id": "mcp-test-session-123",
+      "tools_used": [],
+      "timestamp": "..."
+    }
+  }
+}
+```
+
+---
+
+## Step 5: Read Resources
+
+You can query resources exposed by the agent. For example, reading the schema:
+
+```bash
+curl -X POST "http://localhost:8000/mcp/resources/read" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "method": "resources/read",
+       "params": {
+         "uri": "agent://schema"
+       }
+     }'
+```
+
+This returns the agent's complete schema in JSON format.
+
+You can also read the capabilities resource:
+
+```bash
+curl -X POST "http://localhost:8000/mcp/resources/read" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "method": "resources/read",
+       "params": {
+         "uri": "agent://capabilities"
+       }
+     }'
+```
+
+This returns information about the agent's available tools and capabilities.
+
+---
+
+## Understanding the MCP Adapter
+
+The MCP adapter properly exposes your agent's API:
+
+1. **Single `chat` tool**: Uses your agent's actual input schema from `agent.get_schema()["input_schema"]`
+2. **No artificial tools**: The agent's internal tools (like `get_weather`, `get_time`) are handled internally by the agent, not exposed as separate MCP tools
+3. **Two resources**:
+   - `agent://schema`: Complete agent schema
+   - `agent://capabilities`: Agent capabilities and available tools
+
+### Benefits
+
+- **Proper MCP compliance**: Follows MCP best practices by exposing actual capabilities
+- **Schema accuracy**: Uses the agent's real input/output schemas
+- **Cleaner interface**: Single tool that represents the agent's main capability
+- **Better resource access**: Provides both schema and capabilities information
+
+---
+
+## ✅ Summary
+
+By following these steps, you have successfully:
+
+1. Started the MCP server
+2. Checked the manifest
+3. Listed available tools
+4. Called the agent via MCP
+5. Read exposed resources
+
+This verifies the core functionality of the MCP adapter and ensures your agent is MCP-compliant.
+
+
 
 ## Advanced Configuration
 
