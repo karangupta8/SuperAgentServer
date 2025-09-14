@@ -4,10 +4,11 @@ Base adapter system for exposing agents across different protocols.
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Type
-from fastapi import FastAPI, APIRouter
+
+from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel
 
-from ..agent.base_agent import BaseAgent, AgentRequest, AgentResponse
+from ..agent.base_agent import AgentRequest, AgentResponse, BaseAgent
 
 
 class AdapterConfig(BaseModel):

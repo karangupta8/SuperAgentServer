@@ -4,9 +4,10 @@ Configuration examples for different deployment scenarios.
 
 import os
 import sys
-from typing import Dict, Any
-from dotenv import load_dotenv
 from pathlib import Path
+from typing import Any, Dict
+
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,11 +15,10 @@ load_dotenv()
 # Add the project's 'src' directory to the Python path to allow running this script directly
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from super_agent_server.agent.example_agent import ExampleAgent
 from super_agent_server.adapters.base_adapter import AdapterConfig
 from super_agent_server.adapters.schema_generator import SchemaGenerator
+from super_agent_server.agent.example_agent import ExampleAgent
 from super_agent_server.server import create_app
-
 
 # Example 1: Basic configuration
 BASIC_CONFIG = {
@@ -192,6 +192,7 @@ def generate_manifests(agent, app):
 # Example usage
 if __name__ == "__main__":
     import asyncio
+
     from fastapi import FastAPI
     
     async def main():

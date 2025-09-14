@@ -9,7 +9,7 @@ from pathlib import Path
 # Add the project's 'src' directory to the Python path to allow running this script directly
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from super_agent_server.agent.base_agent import BaseAgent, AgentRequest, AgentResponse
+from super_agent_server.agent.base_agent import AgentRequest, AgentResponse, BaseAgent
 from super_agent_server.server import create_app
 
 

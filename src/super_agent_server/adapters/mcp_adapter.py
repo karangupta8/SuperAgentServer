@@ -4,7 +4,8 @@ MCP (Model Context Protocol) adapter for exposing agents.
 
 import json
 from typing import Any, Dict, List, Optional, cast
-from fastapi import APIRouter, HTTPException, Depends
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..agent.base_agent import AgentRequest, AgentResponse, BaseAgent

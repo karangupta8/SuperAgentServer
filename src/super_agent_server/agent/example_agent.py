@@ -2,13 +2,13 @@
 Example LangChain agent implementation.
 """
 import os
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from langchain.agents import AgentExecutor, create_openai_tools_agent
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
-from langchain_core.messages import AIMessage, HumanMessage
 from langchain_openai import ChatOpenAI
 
 from .base_agent import AgentRequest, AgentResponse, BaseAgent

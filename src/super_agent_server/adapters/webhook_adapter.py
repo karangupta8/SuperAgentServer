@@ -1,7 +1,7 @@
 """
 Webhook Adapter for receiving messages from various platforms.
 """
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from super_agent_server.agent.base_agent import AgentRequest, BaseAgent

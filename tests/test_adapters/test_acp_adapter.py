@@ -5,11 +5,12 @@ Note: These tests require a running message broker (e.g., RabbitMQ)
 and the `pika` library to be installed.
 """
 
-import os
-import pytest
 import json
-import uuid
+import os
 import time
+import uuid
+
+import pytest
 
 # Attempt to import pika, but don't fail if it's not installed.
 # The tests will be skipped anyway.

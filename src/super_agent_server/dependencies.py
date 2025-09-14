@@ -1,5 +1,7 @@
 from typing import Optional
+
 from fastapi import HTTPException
+
 from .agent.base_agent import BaseAgent
 
 # This module holds the shared state and dependencies for the application

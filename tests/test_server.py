@@ -3,9 +3,13 @@ Automated tests for SuperAgentServer using pytest and TestClient.
 """
 import asyncio
 import os
-import pytest, time
+import time
+
+import pytest
 from fastapi.testclient import TestClient
+
 from src.super_agent_server.server import app
+
 
 def test_root(client: TestClient):
     """Test the root endpoint."""

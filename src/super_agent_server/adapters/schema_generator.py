@@ -4,8 +4,9 @@ Schema auto-generation from LangServe REST definitions.
 
 import json
 from typing import Any, Dict, List, Optional
-from fastapi.openapi.utils import get_openapi
+
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, create_model
 
 from ..agent.base_agent import BaseAgent

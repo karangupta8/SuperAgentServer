@@ -2,11 +2,12 @@
 Pytest configuration and shared fixtures.
 """
 
-from dotenv import load_dotenv
-import pytest
 import asyncio
 import os
 import time
+
+import pytest
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
 # Load environment variables from .env file before other imports

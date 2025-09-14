@@ -2,12 +2,8 @@
 Adapter system for exposing agents across different protocols.
 """
 
-from .base_adapter import AdapterConfig, BaseAdapter, AdapterRegistry
-from . import mcp_adapter
-from . import webhook_adapter
-from . import a2a_adapter
-from . import acp_adapter
-
+from . import a2a_adapter, acp_adapter, mcp_adapter, webhook_adapter
+from .base_adapter import AdapterConfig, AdapterRegistry, BaseAdapter
 
 __all__ = [
     "AdapterConfig", "BaseAdapter", "AdapterRegistry",

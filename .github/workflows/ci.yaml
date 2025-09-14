@@ -39,6 +39,10 @@ jobs:
       run: |
         black --check src/ tests/
     
+    - name: Sort check with isort
+      run: |
+        isort --check-only src/ tests/
+
     - name: Type check with mypy
       run: |
         mypy src/

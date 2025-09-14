@@ -2,6 +2,7 @@
 Tests for the A2A adapter endpoints.
 """
 import os
+
 import pytest
 from fastapi.testclient import TestClient
 

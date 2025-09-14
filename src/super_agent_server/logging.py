@@ -4,9 +4,10 @@ Logging configuration for SuperAgentServer.
 
 import logging
 import logging.config
-import yaml
 from pathlib import Path
 from typing import Optional
+
+import yaml
 
 
 def setup_logging(config_path: Optional[str] = None) -> None:
