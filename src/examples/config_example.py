@@ -18,9 +18,6 @@ from super_agent_server.adapters.schema_generator import SchemaGenerator
 from super_agent_server.agent.example_agent import ExampleAgent
 from super_agent_server.server import create_app
 
-# Load environment variables from .env file
-load_dotenv()
-
 # Example 1: Basic configuration
 BASIC_CONFIG = {
     "agent": {
@@ -194,6 +191,9 @@ def generate_manifests(agent, app):
 
 # Example usage
 if __name__ == "__main__":
+    # Load environment variables from .env file
+    load_dotenv()
+
     import asyncio
 
     async def main():

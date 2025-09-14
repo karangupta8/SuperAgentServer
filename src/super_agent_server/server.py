@@ -191,16 +191,16 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
     ):
         """
         Get the manifests for all enabled adapters.
-
-        This endpoint provides a consolidated view of the capabilities and connection
-        details for each active protocol adapter.
+        
+        This endpoint provides a consolidated view of the capabilities and
+        connection details for each active protocol adapter.
         """
         app = request.app
         generator = SchemaGenerator(app)
         all_manifests = generator.generate_all_manifests(agent)
 
         enabled_manifests = {}
-        # We filter the generated manifests to only include the ones enabled
+        # Filter generated manifests to only include enabled ones
         # in settings. The keys in `all_manifests` are 'openapi', 'mcp',
         # 'webhook', 'a2a', 'acp'.
         for name in all_manifests.keys():
@@ -226,9 +226,8 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
             )
             await websocket.send_text(json.dumps({
                 "event": "error",
-                "data": {
-                    "error": "Agent not initialized. Server is in a degraded state."
-                }
+                "data": {"error": "Agent not initialized. "
+                                  "Server is in a degraded state."}
             }))
             await websocket.close(code=1011)  # Internal Error
             return
@@ -250,9 +249,8 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                         chat_history = message_data.input.chat_history
                     else:
                         # Handle other potential formats if necessary, or raise error
-                        raise ValueError(
-                            "Invalid message format. Expected a list with one object."
-                        )
+                        raise ValueError("Invalid message format. "
+                                         "Expected a list with one object.")
 
                     if not message:
                         await websocket.send_text(json.dumps({
