@@ -44,7 +44,22 @@ LangServe   MCP Adapter   A2A Adapter   ACP Adapter   Webhook Adapter
 
 ## 🚀 Quick Start
 
-### Installation
+### Option 1: Docker (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/superagentserver/super-agent-server.git
+cd super-agent-server
+
+# Configure environment
+cp config/env.example .env
+# Edit .env and add your OpenAI API key
+
+# Build and run with Docker
+docker-compose -f docker/docker-compose.yml up --build
+```
+
+### Option 2: Local Installation
 
 ```bash
 # Clone the repository
@@ -53,27 +68,22 @@ cd super-agent-server
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Set up environment
+cp config/env.example .env
+# Edit .env and add your OpenAI API key
+
+# Run the server
+python scripts/dev_runner.py
 ```
 
-### Basic Usage
+### Test the Agent
 
-1. **Set up environment:**
-   ```bash
-   cp env.example .env
-   # Edit .env and add your OpenAI API key
-   ```
-
-2. **Run the server:**
-   ```bash
-   python run.py
-   ```
-
-3. **Test the agent:**
-   ```bash
-   curl -X POST "http://localhost:8000/agent/chat" \
-        -H "Content-Type: application/json" \
-        -d '{"message": "Hello, how are you?"}'
-   ```
+```bash
+curl -X POST "http://localhost:8000/agent/chat" \
+     -H "Content-Type: application/json" \
+     -d '{"message": "Hello, how are you?"}'
+```
 
 > **Note for Windows Users:** If you are using PowerShell, `curl` is an alias for `Invoke-WebRequest` which has a different syntax. Use this command instead:
 > ```powershell
@@ -264,32 +274,43 @@ webhook_config = AdapterConfig(
 
 ## 🚀 Deployment
 
-### Development
+### Docker (Recommended)
 
 ```bash
-python server.py
+# Quick start with Makefile
+make quickstart
+
+# Or manually:
+# Development
+docker-compose up --build
+
+# Production
+docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### Production
+### Local Development
 
 ```bash
-uvicorn server:app --host 0.0.0.0 --port 8000 --workers 4
+python scripts/dev_runner.py
 ```
 
-### Docker
+### Production (Local)
 
-```dockerfile
-FROM python:3.9-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-EXPOSE 8000
-
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
+```bash
+uvicorn super_agent_server.server:app --host 0.0.0.0 --port 8000 --workers 4
 ```
+
+### Docker Build
+
+```bash
+# Build the image
+docker build -t super-agent-server .
+
+# Run the container
+docker run -p 8000:8000 --env-file .env super-agent-server
+```
+
+For detailed deployment instructions, see the [Deployment Guide](docs/deployment/README.md).
 
 ## 🤝 Contributing
 

@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  super-agent-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: super-agent-server
+    ports:
+      - "8000:8000"
+    environment:
+      # Required environment variables
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Server configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=${DEBUG:-False}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      
+      # Model configuration
+      - MODEL_NAME=${MODEL_NAME:-gpt-3.5-turbo}
+      - TEMPERATURE=${TEMPERATURE:-0.7}
+      
+      # Adapter configuration
+      - MCP_ENABLED=${MCP_ENABLED:-True}
+      - WEBHOOK_ENABLED=${WEBHOOK_ENABLED:-True}
+      - A2A_ENABLED=${A2A_ENABLED:-True}
+      - ACP_ENABLED=${ACP_ENABLED:-True}
+      
+      # A2A configuration
+      - A2A_AGENT_ID=${A2A_AGENT_ID:-}
+      - A2A_DISCOVERY_URL=${A2A_DISCOVERY_URL:-https://discovery.a2a-protocol.org}
+      - A2A_MESSAGE_ROUTING=${A2A_MESSAGE_ROUTING:-True}
+      
+      # ACP configuration
+      - ACP_AGENT_ID=${ACP_AGENT_ID:-}
+      - ACP_BROKER_URL=${ACP_BROKER_URL:-amqp://localhost:5672}
+      - ACP_SESSION_PERSISTENCE=${ACP_SESSION_PERSISTENCE:-True}
+      
+      # Webhook configuration
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL:-http://localhost:8000}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-}
+    volumes:
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - super-agent-network
+
+  # Optional: Redis for caching (uncomment if needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: super-agent-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - super-agent-network
+
+  # Optional: PostgreSQL for persistence (uncomment if needed)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: super-agent-postgres
+  #   environment:
+  #     - POSTGRES_DB=super_agent_server
+  #     - POSTGRES_USER=super_agent
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-super_agent_password}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - super-agent-network
+
+networks:
+  super-agent-network:
+    driver: bridge
+
+# Uncomment if using Redis or PostgreSQL
+# volumes:
+#   redis_data:
+#   postgres_data:

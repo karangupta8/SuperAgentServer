@@ -1,0 +1,157 @@
+version: '3.8'
+
+services:
+  super-agent-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: super-agent-server-prod
+    ports:
+      - "8000:8000"
+    environment:
+      # Required environment variables
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Production server configuration
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=False
+      - LOG_LEVEL=WARNING
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      
+      # Model configuration
+      - MODEL_NAME=${MODEL_NAME:-gpt-4}
+      - TEMPERATURE=${TEMPERATURE:-0.7}
+      
+      # Adapter configuration
+      - MCP_ENABLED=${MCP_ENABLED:-True}
+      - WEBHOOK_ENABLED=${WEBHOOK_ENABLED:-True}
+      - A2A_ENABLED=${A2A_ENABLED:-True}
+      - ACP_ENABLED=${ACP_ENABLED:-True}
+      
+      # A2A configuration
+      - A2A_AGENT_ID=${A2A_AGENT_ID}
+      - A2A_DISCOVERY_URL=${A2A_DISCOVERY_URL}
+      - A2A_MESSAGE_ROUTING=${A2A_MESSAGE_ROUTING:-True}
+      
+      # ACP configuration
+      - ACP_AGENT_ID=${ACP_AGENT_ID}
+      - ACP_BROKER_URL=${ACP_BROKER_URL}
+      - ACP_SESSION_PERSISTENCE=${ACP_SESSION_PERSISTENCE:-True}
+      
+      # Webhook configuration
+      - WEBHOOK_BASE_URL=${WEBHOOK_BASE_URL}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
+    volumes:
+      # Mount logs directory for persistence
+      - ./logs:/app/logs
+      # Mount config directory if needed
+      - ./config:/app/config:ro
+    restart: always
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - super-agent-network
+
+  # Nginx reverse proxy for production
+  nginx:
+    image: nginx:alpine
+    container_name: super-agent-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - super-agent-server
+    restart: always
+    networks:
+      - super-agent-network
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: super-agent-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-super_agent_redis_password}
+    networks:
+      - super-agent-network
+
+  # PostgreSQL for persistence
+  postgres:
+    image: postgres:15-alpine
+    container_name: super-agent-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-super_agent_server}
+      - POSTGRES_USER=${POSTGRES_USER:-super_agent}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    networks:
+      - super-agent-network
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: super-agent-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: always
+    networks:
+      - super-agent-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: super-agent-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+    networks:
+      - super-agent-network
+
+networks:
+  super-agent-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:

@@ -8,7 +8,7 @@ This guide covers deploying SuperAgentServer in different environments, from dev
 
 ## Quick Navigation
 
-- **[Docker](docker.md)** - Container-based deployment
+- **[🐳 Docker](docker.md)** - Container-based deployment (Recommended)
 - **[Production](production.md)** - Production deployment best practices
 - **[Cloud Platforms](cloud/README.md)** - AWS, GCP, Azure deployment
 - **[Monitoring](monitoring.md)** - Logging, metrics, and observability
@@ -20,10 +20,10 @@ This guide covers deploying SuperAgentServer in different environments, from dev
 - **Requirements**: Python 3.8+, virtual environment
 - **Best for**: Individual developers, testing
 
-### 2. Docker
+### 2. Docker (Recommended)
 - **Purpose**: Containerized deployment
 - **Requirements**: Docker, Docker Compose
-- **Best for**: Consistent environments, easy scaling
+- **Best for**: Consistent environments, easy scaling, production deployment
 
 ### 3. Cloud Platforms
 - **Purpose**: Scalable, managed deployment
@@ -68,25 +68,35 @@ ALLOWED_ORIGINS=https://your-domain.com
 
 ## Quick Start
 
-### 1. Clone and Install
+### Option 1: Docker (Recommended)
 
 ```bash
+# Clone the repository
+git clone https://github.com/superagentserver/super-agent-server.git
+cd super-agent-server
+
+# Configure environment
+cp config/env.example .env
+# Edit .env with your OpenAI API key
+
+# Build and run with Docker
+docker-compose up --build
+```
+
+### Option 2: Local Installation
+
+```bash
+# Clone and install
 git clone https://github.com/superagentserver/super-agent-server.git
 cd super-agent-server
 pip install -r requirements.txt
 pip install -e .
-```
 
-### 2. Configure Environment
-
-```bash
+# Configure environment
 cp config/env.example .env
 # Edit .env with your settings
-```
 
-### 3. Run the Server
-
-```bash
+# Run the server
 python scripts/dev_runner.py
 ```
 
