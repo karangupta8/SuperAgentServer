@@ -6,6 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 from server import app
 
+# Condition to skip tests that require an initialized agent
+AGENT_NOT_INITIALIZED = os.getenv("OPENAI_API_KEY") is None
+
 
 @pytest.fixture(scope="module")
 def client():
@@ -42,6 +45,7 @@ def test_health_check(client: TestClient):
         assert data["adapters"] == 0
 
 
+@pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
 def test_agent_chat(client: TestClient):
     """Test the direct agent chat endpoint."""
     response = client.post(
@@ -65,6 +69,7 @@ def test_get_manifests(client: TestClient):
     assert "endpoints" in data["webhook"]
 
 
+@pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
 def test_mcp_list_tools(client: TestClient):
     """Test the MCP tools/list endpoint."""
     response = client.post("/mcp/tools/list")
@@ -76,6 +81,7 @@ def test_mcp_list_tools(client: TestClient):
     assert data["result"]["tools"][0]["name"] == "agent_chat"
 
 
+@pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
 def test_mcp_call_tool(client: TestClient):
     """Test the MCP tools/call endpoint."""
     response = client.post(
@@ -95,6 +101,7 @@ def test_mcp_call_tool(client: TestClient):
     assert data["result"]["content"][0]["type"] == "text"
 
 
+@pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
 def test_webhook_generic(client: TestClient):
     """Test the generic webhook endpoint."""
     response = client.post(
@@ -112,6 +119,7 @@ def test_webhook_generic(client: TestClient):
     assert data["platform"] == "pytest"
 
 
+@pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
 def test_websocket_chat_stream(client: TestClient):
     """Test the WebSocket streaming endpoint for a successful stream."""
     try:
