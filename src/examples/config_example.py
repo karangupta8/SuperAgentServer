@@ -3,16 +3,21 @@ Configuration examples for different deployment scenarios.
 """
 
 import os
+import sys
 from typing import Dict, Any
 from dotenv import load_dotenv
+from pathlib import Path
 
 # Load environment variables from .env file
 load_dotenv()
 
-from agent.example_agent import ExampleAgent
-from adapters.base_adapter import AdapterConfig
-from adapters.schema_generator import SchemaGenerator
-from server import create_app
+# Add the project's 'src' directory to the Python path to allow running this script directly
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
+from super_agent_server.agent.example_agent import ExampleAgent
+from super_agent_server.adapters.base_adapter import AdapterConfig
+from super_agent_server.adapters.schema_generator import SchemaGenerator
+from super_agent_server.server import create_app
 
 
 # Example 1: Basic configuration
@@ -33,6 +38,16 @@ BASIC_CONFIG = {
         "webhook": {
             "enabled": True,
             "prefix": "webhook",
+            "config": {}
+        },
+        "a2a": {
+            "enabled": True,
+            "prefix": "a2a",
+            "config": {}
+        },
+        "acp": {
+            "enabled": True,
+            "prefix": "acp",
             "config": {}
         }
     },
@@ -69,6 +84,18 @@ PRODUCTION_CONFIG = {
                 "verify_signatures": True,
                 "max_payload_size": "10MB"
             }
+        },
+        "a2a": {
+            "enabled": True,
+            "prefix": "a2a",
+            "config": {
+                "timeout": 30
+            }
+        },
+        "acp": {
+            "enabled": True,
+            "prefix": "acp",
+            "config": {}
         }
     },
     "server": {
@@ -105,6 +132,18 @@ DEVELOPMENT_CONFIG = {
                 "debug": True,
                 "log_requests": True
             }
+        },
+        "a2a": {
+            "enabled": True,
+            "prefix": "a2a",
+            "config": {
+                "debug": True
+            }
+        },
+        "acp": {
+            "enabled": True,
+            "prefix": "acp",
+            "config": {}
         }
     },
     "server": {
@@ -121,10 +160,9 @@ def create_agent_from_config(config: Dict[str, Any]):
     agent_config = config["agent"]
     
     if agent_config["type"] == "example":
-        return ExampleAgent(
-            openai_api_key=agent_config["config"]["openai_api_key"],
-            model_name=agent_config["config"]["model_name"]
-        )
+        # ExampleAgent now reads its configuration from environment variables
+        # The config dictionary values are for documentation/reference
+        return ExampleAgent()
     else:
         raise ValueError(f"Unknown agent type: {agent_config['type']}")
 

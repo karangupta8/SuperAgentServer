@@ -3,11 +3,14 @@ Simple example of creating and using a custom agent.
 """
 
 import asyncio
-import os
-from agent.base_agent import BaseAgent, AgentRequest, AgentResponse
-from agent.example_agent import ExampleAgent
-from server import create_app
-from fastapi import FastAPI
+import sys
+from pathlib import Path
+
+# Add the project's 'src' directory to the Python path to allow running this script directly
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
+from super_agent_server.agent.base_agent import BaseAgent, AgentRequest, AgentResponse
+from super_agent_server.server import create_app
 
 
 class SimpleChatAgent(BaseAgent):
@@ -90,16 +93,22 @@ class SimpleChatAgent(BaseAgent):
         }
 
 
+# Create the agent instance at the module level
+simple_agent = SimpleChatAgent()
+
+# Create the FastAPI app with the agent.
+# This allows `uvicorn` to discover the `app` object when run from the command line.
+app = create_app(simple_agent)
+
+
 async def main():
     """Example usage of the simple agent."""
-    # Create the simple agent
-    agent = SimpleChatAgent()
-    await agent.initialize()
+    # The agent is initialized as part of the app's lifespan
     
     # Test the agent directly
     print("Testing Simple Agent:")
     print("=" * 50)
-    
+
     test_messages = [
         "Hello!",
         "What's the weather like?",
@@ -109,18 +118,16 @@ async def main():
     ]
     
     for message in test_messages:
-        request = AgentRequest(message=message, session_id="test-session")
-        response = await agent(request)
+        request = AgentRequest(message=message, session_id="direct-test-session")
+        response = await simple_agent(request)
         print(f"User: {message}")
         print(f"Agent: {response.message}")
         print(f"Metadata: {response.metadata}")
         print("-" * 30)
-    
-    # Create FastAPI app with the agent
-    app = create_app(agent)
-    
-    print("\nFastAPI app created with Simple Agent")
-    print("Run with: uvicorn examples.simple_agent:app --reload")
+
+    print("\nFastAPI app has been created with the SimpleChatAgent.")
+    print("To run the server, execute the following command from your project root:")
+    print("uvicorn src.examples.simple_agent:app --reload --port 8000")
     print("Available endpoints:")
     print("- GET / - Server info")
     print("- POST /agent/chat - Chat with agent")
