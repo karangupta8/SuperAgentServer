@@ -4,6 +4,7 @@ Example LangChain agent implementation.
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+import numexpr
 
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain_core.messages import AIMessage, HumanMessage
@@ -12,11 +13,6 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 
 from .base_agent import AgentRequest, AgentResponse, BaseAgent
-
-# Load the OpenAI API key from environment variables.
-# This is a better practice than passing it in the constructor.
-if os.getenv("OPENAI_API_KEY", None) is None:
-    raise ValueError("OPENAI_API_KEY environment variable not set.")
 
 
 class ExampleAgent(BaseAgent):
@@ -36,11 +32,15 @@ class ExampleAgent(BaseAgent):
 
     async def initialize(self) -> None:
         """Initialize the LangChain agent."""
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable not set.")
+
         # Initialize the LLM
         self.llm = ChatOpenAI(
             model=os.getenv("MODEL_NAME", "gpt-3.5-turbo"),
             temperature=float(os.getenv("TEMPERATURE", "0.7")),
-            api_key=os.getenv("OPENAI_API_KEY")
+            api_key=api_key
         )
 
         # Define tools
@@ -53,13 +53,9 @@ class ExampleAgent(BaseAgent):
         def calculate(expression: str) -> str:
             """Calculate a mathematical expression safely."""
             try:
-                # Simple evaluation for basic math
-                allowed_chars = set("0123456789+-*/.() ")
-                if all(c in allowed_chars for c in expression):
-                    result = eval(expression)
-                    return str(result)
-                else:
-                    return "Error: Invalid characters in expression"
+                # Use numexpr for safe evaluation. It protects against security risks.
+                result = numexpr.evaluate(expression).item()
+                return str(result)
             except Exception as e:
                 return f"Error: {str(e)}"
 
