@@ -227,6 +227,7 @@ async def websocket_chat(websocket: WebSocket):
                 # TRUE STREAMING: Use the agent's native streaming capabilities
                 try:
                     # Check if the agent has streaming capabilities
+                    print(f"Trying native Streaming for response")
                     if hasattr(agent, 'agent_executor') and hasattr(agent.agent_executor, 'astream'):
                         # Use LangChain's native streaming
                         async for chunk in agent.agent_executor.astream({
@@ -242,6 +243,7 @@ async def websocket_chat(websocket: WebSocket):
                                 }))
                     else:
                         # Fallback to regular processing if streaming not available
+                        print(f"Streaming not available. Regular Processing")
                         request = AgentRequest(
                             message=message,
                             session_id="websocket_session"
