@@ -6,22 +6,22 @@ Main FastAPI server that exposes LangChain agents across multiple protocols.
 """
 
 import os   
-import logging
-from typing import Dict, Any, Optional
+import logging 
+from typing import Optional
 from contextlib import asynccontextmanager, suppress
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
 from dotenv import load_dotenv, find_dotenv
 import json
-import asyncio
 from pydantic import BaseModel, ValidationError
 
 from .agent.base_agent import BaseAgent, AgentRequest, AgentResponse
 from .agent.example_agent import ExampleAgent
-from .adapters.base_adapter import AdapterRegistry, AdapterConfig
+from . import adapters
 from . import dependencies
+from .adapters.schema_generator import SchemaGenerator
 from .config import settings
 
 
@@ -41,9 +41,6 @@ load_dotenv(find_dotenv())
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Global registry
-adapter_registry = AdapterRegistry()
 
 def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
     """Factory to create a lifespan handler, optionally with a pre-configured agent."""
@@ -75,20 +72,16 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
         # This makes server behavior consistent and avoids startup race conditions.
         try:
             if settings.MCP_ENABLED:
-                from .adapters.mcp_adapter import router as mcp_router
-                app.include_router(mcp_router)
+                app.include_router(adapters.mcp_adapter.router)
                 logger.info("MCP adapter enabled.")
             if settings.WEBHOOK_ENABLED:
-                from .adapters.webhook_adapter import router as webhook_router
-                app.include_router(webhook_router)
+                app.include_router(adapters.webhook_adapter.router)
                 logger.info("Webhook adapter enabled.")
             if settings.A2A_ENABLED:
-                from .adapters.a2a_adapter import router as a2a_router
-                app.include_router(a2a_router)
+                app.include_router(adapters.a2a_adapter.router)
                 logger.info("A2A adapter enabled.")
             if settings.ACP_ENABLED:
-                from .adapters.acp_adapter import router as acp_router
-                app.include_router(acp_router)
+                app.include_router(adapters.acp_adapter.router)
                 logger.info("ACP adapter enabled.")
         except Exception as e:
             logger.error(f"Failed to configure adapters: {e}")
@@ -166,30 +159,29 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         return agent.get_schema()
 
     @app.get("/manifests", tags=["Adapters"])
-    async def get_all_manifests(agent: BaseAgent = Depends(dependencies.get_agent)):
+    async def get_all_manifests(request: Request, agent: BaseAgent = Depends(dependencies.get_agent)):
         """
         Get the manifests for all enabled adapters.
 
         This endpoint provides a consolidated view of the capabilities and
         connection details for each active protocol adapter.
         """
-        manifests = {}
-        adapter_modules = {
-            "mcp": "mcp_adapter",
-            "webhook": "webhook_adapter",
-            "a2a": "a2a_adapter",
-            "acp": "acp_adapter",
-        }
+        app = request.app
+        generator = SchemaGenerator(app)
+        all_manifests = generator.generate_all_manifests(agent)
 
-        for name, module_name in adapter_modules.items():
+        enabled_manifests = {}
+        # We filter the generated manifests to only include the ones enabled in settings.
+        # The keys in `all_manifests` are 'openapi', 'mcp', 'webhook', 'a2a', 'acp'.
+        for name in all_manifests.keys():
+            if name == "openapi":  # openapi is not a typical adapter, skip it.
+                continue
+
             if getattr(settings, f"{name.upper()}_ENABLED", False):
-                try:
-                    adapter_module = __import__(f"super_agent_server.adapters.{module_name}", fromlist=["get_manifest"])
-                    manifests[name] = await adapter_module.get_manifest(agent)
-                except (ImportError, AttributeError) as e:
-                    logger.warning(f"Could not load manifest for '{name}' adapter: {e}")
+                if name in all_manifests:
+                    enabled_manifests[name] = all_manifests[name]
 
-        return manifests
+        return enabled_manifests
 
     @app.websocket("/chat/stream")
     async def websocket_chat(websocket: WebSocket):
