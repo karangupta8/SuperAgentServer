@@ -86,26 +86,6 @@ class MyFirstAgent(BaseAgent):
                 }
             }
         }
-
-
-# Example usage
-async def main():
-    """Example of using the agent directly."""
-    agent = MyFirstAgent()
-    await agent.initialize()
-    
-    # Test the agent
-    request = AgentRequest(
-        message="Hello, World!",
-        session_id="test-session"
-    )
-    
-    response = await agent.process(request)
-    print(f"Response: {response.message}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
 ```
 
 ## Step 2: Test Your Agent
@@ -194,9 +174,7 @@ Expected response:
   "metadata": {
     "agent_name": "my-first-agent",
     "original_message": "Hello from REST API!"
-  },
-  "tools_used": null,
-  "timestamp": "2024-01-15T10:30:00.000000"
+  }
 }
 ```
 

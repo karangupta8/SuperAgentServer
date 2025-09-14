@@ -74,7 +74,6 @@ class AdvancedLangChainAgent(BaseAgent):
             You can perform calculations, tell time, check the weather, remember information,
             work with files, and search the web.
             Always use the appropriate tool when needed and provide helpful responses."""),
-            MessagesPlaceholder(variable_name="chat_history"),
             ("user", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
@@ -322,6 +321,27 @@ class AdvancedLangChainAgent(BaseAgent):
                 }
             }
         }
+
+
+# Example usage
+async def main():
+    """Example of using the advanced agent."""
+    agent = AdvancedLangChainAgent()
+    await agent.initialize()
+    
+    # Test the agent
+    request = AgentRequest(
+        message="What's 2 + 2, and what time is it?",
+        session_id="test-session"
+    )
+    
+    response = await agent.process(request)
+    print(f"Response: {response.message}")
+    print(f"Tools used: {response.metadata.get('tools_used', [])}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 ### 2. Memory-Enabled Agent

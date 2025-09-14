@@ -59,8 +59,7 @@ class AgentResponse(BaseModel):
     message: str                    # The agent's response
     session_id: Optional[str]       # Session identifier
     metadata: Optional[Dict[str, Any]]  # Additional metadata
-    tools_used: Optional[List[str]] # Tools used in response
-    timestamp: datetime             # Response timestamp
+    timestamp: datetime             # Response timestamp (within metadata)
 ```
 
 ### Adapter Classes

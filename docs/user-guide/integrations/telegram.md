@@ -71,9 +71,6 @@ You are now ready to chat with your agent!
     ```
     You should receive this message from your bot in Telegram.
 
-    ```
-    You should receive this message from your bot in Telegram.
-
 ## Managing Your Integration with `telegram_setup.py`
 
 The `telegram_setup.py` script is your primary tool for managing the Telegram integration. Beyond the initial setup, it provides several commands for testing and maintenance.

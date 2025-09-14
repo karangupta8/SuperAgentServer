@@ -25,11 +25,13 @@ Get SuperAgentServer running in 5 minutes!
 **Option A: Using the development runner:**
 ```bash
 python scripts/dev_runner.py
+
+# This command starts the server with the default ExampleAgent.
 ```
 
 **Option B: Using uvicorn directly:**
 ```bash
-uvicorn src.super_agent_server.server:app --host 0.0.0.0 --port 8000 --reload
+uvicorn super_agent_server.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 **Option C: Using the module:**
@@ -98,7 +100,7 @@ curl -X POST "http://localhost:8000/mcp/tools/call" \
      -d '{
        "method": "tools/call",
        "params": {
-         "name": "chat",
+         "name": "agent_chat",
          "arguments": {"message": "Hello from MCP!"}
        }
      }'

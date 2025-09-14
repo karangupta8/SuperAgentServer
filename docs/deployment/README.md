@@ -80,7 +80,7 @@ cp config/env.example .env
 # Edit .env with your OpenAI API key
 
 # Build and run with Docker
-docker-compose up --build
+docker-compose -f docker/docker-compose.yml up --build
 ```
 
 ### Option 2: Local Installation

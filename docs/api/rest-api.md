@@ -26,14 +26,13 @@ All API responses follow a consistent format:
 
 ```json
 {
-  "message": "Response content",
+  "message": "Hello! I'm doing well, thank you for asking.",
   "session_id": "optional-session-id",
   "metadata": {
     "agent_name": "agent-name",
-    "timestamp": "2024-01-15T10:30:00.000000"
-  },
-  "tools_used": ["tool1", "tool2"],
-  "timestamp": "2024-01-15T10:30:00.000000"
+    "timestamp": "2024-01-15T10:30:00.000000",
+    "tools_used": ["tool1", "tool2"]
+  }
 }
 ```
 

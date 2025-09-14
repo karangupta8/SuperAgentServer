@@ -34,6 +34,7 @@ This guide will help you install SuperAgentServer on your system.
 3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
+   pip install -r config/requirements-dev.txt
    ```
 
 4. **Install the package in development mode:**

@@ -60,10 +60,11 @@ SuperAgentServer can be configured through environment variables, configuration 
 
 ### Webhook Configuration
 
-| Variable | Description | Default | Required for bi-directional chat |
-|--------------------|--------------------|---------|---------------------------------|
+| Variable | Description | Default | Required |
+|--------------------|--------------------|---------|----------|
+| `WEBHOOK_BASE_URL` | Public base URL for webhooks (e.g., ngrok) | - | Yes |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token | - | Yes, for Telegram |
-| `TELEGRAM_CHAT_ID` | Telegram user/chat ID | - | Yes, for `send-message` test |
+| `TELEGRAM_CHAT_ID` | Telegram user/chat ID for testing | - | No |
 | `SLACK_BOT_TOKEN` | Slack bot token | - | Yes, for Slack |
 | `DISCORD_BOT_TOKEN` | Discord bot token | - | Yes, for Discord |
 
@@ -105,7 +106,7 @@ ACP_BROKER_URL=amqp://localhost:5672
 ACP_SESSION_PERSISTENCE=True
 
 # Webhook settings
-WEBHOOK_BASE_URL=https://your-domain.com
+WEBHOOK_BASE_URL=https://your-ngrok-or-public-url.com
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
 DISCORD_BOT_TOKEN=your_discord_bot_token

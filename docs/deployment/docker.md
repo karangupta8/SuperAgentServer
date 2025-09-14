@@ -122,28 +122,28 @@ docker run -p 8000:8000 \
 
 ```bash
 # Start services
-docker-compose up
+docker-compose -f docker/docker-compose.yml up
 
 # Start in background
-docker-compose up -d
+docker-compose -f docker/docker-compose.yml up -d
 
 # Stop services
-docker-compose down
+docker-compose -f docker/docker-compose.yml down
 
 # Rebuild and start
-docker-compose up --build
+docker-compose -f docker/docker-compose.yml up --build
 
 # View logs
-docker-compose logs -f
+docker-compose -f docker/docker-compose.yml logs -f
 
 # View logs for specific service
-docker-compose logs -f super-agent-server
+docker-compose -f docker/docker-compose.yml logs -f super-agent-server
 
 # Scale the service
-docker-compose up --scale super-agent-server=3
+docker-compose -f docker/docker-compose.yml up --scale super-agent-server=3
 
 # Execute commands in running container
-docker-compose exec super-agent-server bash
+docker-compose -f docker/docker-compose.yml exec super-agent-server bash
 ```
 
 ## Environment Configurations

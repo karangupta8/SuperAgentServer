@@ -69,6 +69,9 @@ cd super-agent-server
 # Install dependencies
 pip install -r requirements.txt
 
+# Install the package in development mode
+pip install -e .
+
 # Set up environment
 cp config/env.example .env
 # Edit .env and add your OpenAI API key
@@ -126,7 +129,7 @@ curl -X POST "http://localhost:8000/mcp/tools/call" \
      -d '{
        "method": "tools/call",
        "params": {
-         "name": "chat",
+         "name": "agent_chat",
          "arguments": {
            "message": "Hello from MCP!",
            "session_id": "mcp-session"
@@ -138,13 +141,16 @@ curl -X POST "http://localhost:8000/mcp/tools/call" \
 > **PowerShell:**
 > ```powershell
 > # List available tools
-> Invoke-WebRequest -Uri "http://localhost:8000/mcp/tools/list" -Method POST
+> Invoke-WebRequest -Uri "http://localhost:8000/mcp/tools/list" -Method POST -Body "{}" -Headers @{"Content-Type"="application/json"}
 >
 > # Call a tool
 > $body = @{
->   name = "agent_chat"
->   arguments = @{ message = "Hello from MCP!"; session_id = "mcp-session" }
-> } | ConvertTo-Json
+>   method = "tools/call"
+>   params = @{
+>     name = "agent_chat"
+>     arguments = @{ message = "Hello from MCP!"; session_id = "mcp-session" }
+>   }
+> } | ConvertTo-Json -Depth 4
 > Invoke-WebRequest -Uri "http://localhost:8000/mcp/tools/call" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body
 > ```
 
@@ -192,7 +198,7 @@ curl -X POST "http://localhost:8000/webhook/telegram" \
 ## 🛠️ Creating Custom Agents
 
 ```python
-from agent.base_agent import BaseAgent, AgentRequest, AgentResponse
+from super_agent_server.agent import BaseAgent, AgentRequest, AgentResponse
 
 class MyCustomAgent(BaseAgent):
     def __init__(self):
@@ -212,15 +218,16 @@ class MyCustomAgent(BaseAgent):
         return {...}
 
 # Use with FastAPI
-from server import create_app
+from super_agent_server.server import create_app
 app = create_app(MyCustomAgent())
 ```
 
 ## 📚 Documentation
 
 - **[📖 Usage Guide](docs/USAGE_GUIDE.md)** - Complete usage instructions
-- **[🔧 API Reference](docs/API_REFERENCE.md)** - Detailed API documentation
-- **[📋 Examples](examples/)** - Code examples and configurations
+- **[📖 User Guide](docs/user-guide/README.md)** - Complete usage instructions
+- **[🔧 API Reference](docs/api/README.md)** - Detailed API documentation
+- **[📋 Examples](docs/examples/README.md)** - Code examples and configurations
 
 ## 🌐 Available Adapters
 
@@ -314,7 +321,7 @@ For detailed deployment instructions, see the [Deployment Guide](docs/deployment
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see our [Contributing Guide](docs/development/contributing.md) for details.
 
 1. Fork the repository
 2. Create a feature branch
