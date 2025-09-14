@@ -195,6 +195,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 # Optional
 HOST=0.0.0.0
 PORT=8000
+ALLOWED_ORIGINS="http://localhost:3000,https://your-frontend.com"
 DEBUG=True
 LOG_LEVEL=INFO
 ```

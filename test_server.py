@@ -1,7 +1,7 @@
 """
 Automated tests for SuperAgentServer using pytest and TestClient.
 """
-
+import os
 import pytest
 from fastapi.testclient import TestClient
 from server import app
@@ -27,12 +27,19 @@ def test_root(client: TestClient):
 
 def test_health_check(client: TestClient):
     """Test the health check endpoint."""
+    # The agent's initialization depends on the OPENAI_API_KEY env var.
+    # The test should respect this state to be reliable in any environment.
+    agent_should_be_initialized = os.getenv("OPENAI_API_KEY") is not None
+
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["agent_initialized"] is True
-    assert data["adapters"] > 0
+    assert data["agent_initialized"] is agent_should_be_initialized
+    if agent_should_be_initialized:
+        assert data["adapters"] > 0
+    else:
+        assert data["adapters"] == 0
 
 
 def test_agent_chat(client: TestClient):
