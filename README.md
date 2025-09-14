@@ -64,7 +64,7 @@ pip install -r requirements.txt
 
 2. **Run the server:**
    ```bash
-   python server.py
+   python run.py
    ```
 
 3. **Test the agent:**

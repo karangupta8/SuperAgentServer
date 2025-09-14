@@ -103,3 +103,38 @@ def test_webhook_generic(client: TestClient):
     assert "message" in data
     assert data["user_id"] == "pytest-user"
     assert data["platform"] == "pytest"
+
+
+def test_websocket_chat_stream(client: TestClient):
+    """Test the WebSocket streaming endpoint for a successful stream."""
+    try:
+        with client.websocket_connect("/chat/stream") as websocket:
+            # Send a message in LangServe format
+            input_data = {
+                "input": {"input": "Hello, stream!", "chat_history": []}
+            }
+            websocket.send_json([input_data])
+
+            # Receive and validate events
+            start_event_received = False
+            stream_content = ""
+            end_event_received = False
+
+            # The test client's receive_json has a default timeout
+            while True:
+                data = websocket.receive_json()
+                event_type = data.get("event")
+
+                if event_type == "on_chat_model_start":
+                    start_event_received = True
+                elif event_type == "on_chat_model_stream":
+                    stream_content += data.get("data", {}).get("chunk", {}).get("content", "")
+                elif event_type == "on_chat_model_end":
+                    end_event_received = True
+                    break  # End of stream
+
+            assert start_event_received, "Did not receive the 'on_chat_model_start' event"
+            assert len(stream_content) > 0, "Streamed content was empty"
+            assert end_event_received, "Did not receive the 'on_chat_model_end' event"
+    except Exception as e:
+        pytest.fail(f"WebSocket test failed with an exception: {e}")

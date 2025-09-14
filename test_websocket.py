@@ -40,22 +40,15 @@ async def run_websocket_test():
     print(f"🚀 Connecting to WebSocket at {uri}")
 
     try:
-        # Try with additional_headers first (correct parameter for websockets 15.0.1)
-        try:
-            async with websockets.connect(
-                uri, additional_headers={"Origin": "http://localhost:3000"}
-            ) as websocket:
-                print("✅ Connected! Sending a message to the agent...")
-                await test_websocket_communication(websocket)
-        except TypeError as e:
-            if "unexpected keyword argument" in str(e):
-                print("   additional_headers not supported, trying without headers...")
-                async with websockets.connect(uri) as websocket:
-                    print("✅ Connected! Sending a message to the agent...")
-                    await test_websocket_communication(websocket)
-            else:
-                raise
-
+        # Using `additional_headers` as an alternative to `extra_headers` to work
+        # around a persistent environment-specific issue. This is an alias in
+        # modern `websockets` versions.
+        # The Origin header is required for the WebSocket handshake.
+        async with websockets.connect(
+            uri, additional_headers={"Origin": "http://localhost:3000"}
+        ) as websocket:
+            print("✅ Connected! Sending a message to the agent...")
+            await test_websocket_communication(websocket)
     except Exception as e:
         print(f"❌ An error occurred: {e}")
 

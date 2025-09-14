@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
     # Initialize the example agent
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
-        logger.warning("OPENAI_API_KEY not set, using mock agent")
+        logger.warning("OPENAI_API_KEY not set. Agent initialization will be skipped.")
         yield
         return
     
@@ -224,63 +224,30 @@ async def websocket_chat(websocket: WebSocket):
                     "data": {"chunk": {"content": ""}}
                 }))
                 
-                # TRUE STREAMING: Use the agent's native streaming capabilities
-                try:
-                    # Check if the agent has streaming capabilities
-                    print(f"Trying native Streaming for response")
-                    if hasattr(agent, 'agent_executor') and hasattr(agent.agent_executor, 'astream'):
-                        # Use LangChain's native streaming
-                        async for chunk in agent.agent_executor.astream({
-                            "input": message,
-                            "chat_history": chat_history
-                        }):
-                            # Extract content from the chunk
-                            if 'output' in chunk:
-                                content = chunk['output']
-                                await websocket.send_text(json.dumps({
-                                    "event": "on_chat_model_stream",
-                                    "data": {"chunk": {"content": content}}
-                                }))
-                    else:
-                        # Fallback to regular processing if streaming not available
-                        print(f"Streaming not available. Regular Processing")
-                        request = AgentRequest(
-                            message=message,
-                            session_id="websocket_session"
-                        )
-                        response = await agent(request)
-                        
-                        # Stream the response in chunks
-                        response_text = response.message
-                        chunk_size = 10
-                        
-                        for i in range(0, len(response_text), chunk_size):
-                            chunk = response_text[i:i + chunk_size]
-                            await websocket.send_text(json.dumps({
-                                "event": "on_chat_model_stream",
-                                "data": {"chunk": {"content": chunk}}
-                            }))
-                            await asyncio.sleep(0.05)  # Small delay for streaming effect
+                # The agent object itself doesn't have `astream`. The underlying LangChain
+                # runnable (agent_executor) provides the streaming functionality.
+                # LangChain runnables expect a dictionary as input.
+                input_dict = {"input": message, "chat_history": chat_history}
                 
-                except Exception as stream_error:
-                    logger.error(f"Error in streaming: {stream_error}")
-                    # Fallback to regular processing
-                    request = AgentRequest(
-                        message=message,
-                        session_id="websocket_session"
-                    )
-                    response = await agent(request)
-                    
-                    # Send the complete response
-                    await websocket.send_text(json.dumps({
-                        "event": "on_chat_model_stream",
-                        "data": {"chunk": {"content": response.message}}
-                    }))
+                # Use the agent's underlying executor for true, real-time streaming.
+                async for chunk in agent.agent_executor.astream(input_dict):
+                    # Agent stream chunks are dictionaries. The actual content is usually
+                    # in a list under the 'messages' key.
+                    if "messages" in chunk:
+                        for message_chunk in chunk["messages"]:
+                            if hasattr(message_chunk, "content"):
+                                content = message_chunk.content
+                                if content:
+                                    # Send each content part as it arrives.
+                                    await websocket.send_text(json.dumps({
+                                        "event": "on_chat_model_stream",
+                                        "data": {"chunk": {"content": content}}
+                                    }))
                 
                 # Send final response
                 await websocket.send_text(json.dumps({
                     "event": "on_chat_model_end",
-                    "data": {"chunk": {"content": ""}}
+                    "data": {} # LangServe sends an empty data object on end
                 }))
                 
             except json.JSONDecodeError:
