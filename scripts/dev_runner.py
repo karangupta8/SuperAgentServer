@@ -55,6 +55,13 @@ def main():
         print("   The example agent will not work without an OpenAI API key")
         print("   Set it in your environment or .env file")
         print()
+
+    if not os.getenv("TELEGRAM_BOT_TOKEN"):
+        print("⚠️  Warning: TELEGRAM_BOT_TOKEN not set")
+        print("   The Telegram webhook adapter will not be able to send replies.")
+        print("   To enable bi-directional chat, set it in your .env file.")
+        print()
+
     
     # Get configuration from environment
     host = os.getenv("HOST", "0.0.0.0")

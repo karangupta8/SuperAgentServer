@@ -4,8 +4,8 @@ Adapter-specific tests.
 
 import pytest
 from unittest.mock import Mock, patch
-from src.super_agent_server.adapters.mcp_adapter import MCPAdapter
-from src.super_agent_server.agent.base_agent import AgentRequest, AgentResponse
+from super_agent_server.adapters.mcp_adapter import MCPAdapter
+from super_agent_server.agent.base_agent import AgentRequest, AgentResponse
 
 
 class TestMCPAdapter:
@@ -31,7 +31,7 @@ class TestMCPAdapter:
             json={
                 "method": "tools/call",
                 "params": {
-                    "name": "agent_chat",
+                    "name": "chat",
                     "arguments": sample_agent_request
                 }
             }
@@ -39,4 +39,3 @@ class TestMCPAdapter:
         assert response.status_code == 200
         data = response.json()
         assert "result" in data
-

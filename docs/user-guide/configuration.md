@@ -60,12 +60,12 @@ SuperAgentServer can be configured through environment variables, configuration 
 
 ### Webhook Configuration
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `WEBHOOK_BASE_URL` | Base URL for webhook endpoints | - | No |
-| `TELEGRAM_BOT_TOKEN` | Telegram bot token | - | No |
-| `SLACK_BOT_TOKEN` | Slack bot token | - | No |
-| `DISCORD_BOT_TOKEN` | Discord bot token | - | No |
+| Variable | Description | Default | Required for bi-directional chat |
+|--------------------|--------------------|---------|---------------------------------|
+| `TELEGRAM_BOT_TOKEN` | Telegram bot token | - | Yes, for Telegram |
+| `TELEGRAM_CHAT_ID` | Telegram user/chat ID | - | Yes, for `send-message` test |
+| `SLACK_BOT_TOKEN` | Slack bot token | - | Yes, for Slack |
+| `DISCORD_BOT_TOKEN` | Discord bot token | - | Yes, for Discord |
 
 ## Configuration Files
 

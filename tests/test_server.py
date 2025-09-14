@@ -5,19 +5,10 @@ import asyncio
 import os
 import pytest
 from fastapi.testclient import TestClient
-from server import app
+from src.super_agent_server.server import app
 
 # Condition to skip tests that require an initialized agent
 AGENT_NOT_INITIALIZED = os.getenv("OPENAI_API_KEY") is None
-
-
-@pytest.fixture(scope="module")
-def client():
-    """Create a TestClient instance for the FastAPI app."""
-    # The TestClient will automatically handle the app's lifespan events
-    with TestClient(app) as c:
-        yield c
-
 
 def test_root(client: TestClient):
     """Test the root endpoint."""
@@ -59,6 +50,16 @@ def test_agent_chat(client: TestClient):
     assert data["session_id"] == "pytest-session"
 
 
+@pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
+def test_agent_schema_endpoint(client: TestClient):
+    """Test the agent schema endpoint."""
+    response = client.get("/agent/schema")
+    assert response.status_code == 200
+    data = response.json()
+    assert "name" in data
+    assert "description" in data
+
+
 def test_get_manifests(client: TestClient):
     """Test the manifests endpoint."""
     response = client.get("/manifests")
@@ -79,7 +80,7 @@ def test_mcp_list_tools(client: TestClient):
     assert "result" in data
     assert "tools" in data["result"]
     assert len(data["result"]["tools"]) > 0
-    assert data["result"]["tools"][0]["name"] == "agent_chat"
+    assert data["result"]["tools"][0]["name"] == "chat"
 
 
 @pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
@@ -90,7 +91,7 @@ def test_mcp_call_tool(client: TestClient):
         json={
             "method": "tools/call",
             "params": {
-                "name": "agent_chat",
+                "name": "chat",
                 "arguments": {"message": "Hello from MCP test"},
             },
         },
@@ -106,7 +107,7 @@ def test_mcp_call_tool(client: TestClient):
 def test_webhook_generic(client: TestClient):
     """Test the generic webhook endpoint."""
     response = client.post(
-        "/webhook/webhook",
+        "/webhook",
         json={
             "message": "Hello from webhook test",
             "user_id": "pytest-user",
@@ -140,7 +141,7 @@ async def test_websocket_chat_stream(client: TestClient):
             
             while not end_event_received:
                 try:
-                    data = await asyncio.wait_for(websocket.receive_json(), timeout=timeout)
+                    data = websocket.receive_json()
                     event_type = data.get("event")
 
                     if event_type == "on_chat_model_start":
@@ -149,8 +150,8 @@ async def test_websocket_chat_stream(client: TestClient):
                         stream_content += data.get("data", {}).get("chunk", {}).get("content", "")
                     elif event_type == "on_chat_model_end":
                         end_event_received = True
-                except asyncio.TimeoutError:
-                    pytest.fail(f"WebSocket test timed out after {timeout} seconds waiting for message.")
+                except Exception:
+                    pytest.fail(f"WebSocket test timed out or failed while receiving message.")
 
             assert start_event_received, "Did not receive the 'on_chat_model_start' event"
             assert len(stream_content) > 0, "Streamed content was empty"

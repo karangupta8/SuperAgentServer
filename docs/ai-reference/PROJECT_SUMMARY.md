@@ -108,7 +108,7 @@ SuperAgentServer/
 - `GET /mcp/manifest` - MCP manifest
 
 ### Webhook Endpoints
-- `POST /webhook/webhook` - Generic webhook
+- `POST /webhook` - Generic webhook
 - `POST /webhook/telegram` - Telegram webhook
 - `POST /webhook/slack` - Slack webhook
 - `POST /webhook/discord` - Discord webhook

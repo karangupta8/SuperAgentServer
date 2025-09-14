@@ -3,6 +3,7 @@ import websockets
 import json
 import sys
 
+
 def run_diagnostics():
     """Prints diagnostic information to identify environment issues."""
     print("=" * 60)
@@ -34,7 +35,7 @@ def run_diagnostics():
     return True
 
 
-async def run_websocket_test():
+async def run_websocket_test(message_to_send: str):
     """Connects to the streaming endpoint and prints the agent's response."""
     uri = "ws://localhost:8000/chat/stream"
     print(f"🚀 Connecting to WebSocket at {uri}")
@@ -47,20 +48,17 @@ async def run_websocket_test():
         async with websockets.connect(
             uri, additional_headers={"Origin": "http://localhost:3000"}
         ) as websocket:
-            print("✅ Connected! Sending a message to the agent...")
-            await test_websocket_communication(websocket)
+            print(f"✅ Connected! Sending message: '{message_to_send}'")
+            await test_websocket_communication(websocket, message_to_send)
     except Exception as e:
         print(f"❌ An error occurred: {e}")
 
 
-async def test_websocket_communication(websocket):
+async def test_websocket_communication(websocket, message_to_send: str):
     """Test the WebSocket communication once connected."""
     # Send a message in LangServe format
     input_data = {
-        "input": {
-            "input": "What time is it in London, Amsterdam and SF, Cali?",
-            "chat_history": []
-        }
+        "input": {"input": message_to_send, "chat_history": []}
     }
 
     await websocket.send(json.dumps([input_data]))
@@ -95,8 +93,14 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+    # Use a default message if none is provided via command line
+    if len(sys.argv) > 1:
+        message = " ".join(sys.argv[1:])
+    else:
+        message = "What time is it in London, Amsterdam and SF, Cali?"
+
     if run_diagnostics():
-        asyncio.run(run_websocket_test())
+        asyncio.run(run_websocket_test(message))
     else:
         print("\nAborting due to critical environment error.")
         sys.exit(1)

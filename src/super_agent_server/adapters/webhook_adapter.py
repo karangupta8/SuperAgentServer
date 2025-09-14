@@ -4,11 +4,14 @@ Webhook adapter for external integrations (Telegram, Slack, etc.).
 
 import os
 import httpx
+import logging
 from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
 import json
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -68,16 +71,24 @@ class WebhookAdapter(BaseAdapter):
             """Telegram-specific webhook endpoint."""
             try:
                 data = await request.json()
+                logger.info(f"Received Telegram webhook: {json.dumps(data, indent=2)}")
+
                 message_data = self._parse_telegram_message(data)
+                logger.info(f"Parsed Telegram message: {message_data}")
+
                 response = await self._process_request(message_data)
+                logger.info(f"Agent generated response: {response}")
                 
                 # Send response back to Telegram if token is configured
                 if self.telegram_token and message_data.get("user_id"):
+                    logger.info(f"Attempting to send reply to Telegram chat_id: {message_data['user_id']}")
                     await self._send_telegram_message(
                         chat_id=message_data["user_id"],
                         text=response["message"]
                     )
-                
+                else:
+                    logger.warning("TELEGRAM_BOT_TOKEN not set or no chat_id found. Cannot send reply.")
+
                 return response
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid Telegram webhook: {str(e)}")
@@ -223,6 +234,7 @@ class WebhookAdapter(BaseAdapter):
     async def _send_telegram_message(self, chat_id: str, text: str) -> None:
         """Send message back to Telegram."""
         if not self.telegram_token:
+            logger.warning("Cannot send Telegram message: TELEGRAM_BOT_TOKEN is not configured.")
             return
         
         url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
@@ -236,8 +248,11 @@ class WebhookAdapter(BaseAdapter):
             try:
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
+                logger.info(f"Successfully sent message to Telegram chat_id: {chat_id}")
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Failed to send Telegram message to chat_id {chat_id}. Status: {e.response.status_code}, Response: {e.response.text}")
             except Exception as e:
-                print(f"Failed to send Telegram message: {e}")
+                logger.error(f"An unexpected error occurred while sending Telegram message: {e}", exc_info=True)
     
     async def _send_slack_message(self, channel: str, text: str) -> None:
         """Send message back to Slack."""
