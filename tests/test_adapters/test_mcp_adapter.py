@@ -24,7 +24,10 @@ def test_mcp_tool_call(client):
             "method": "tools/call",
             "params": {
                 "name": "chat",
-                "arguments": {"message": "Hello from MCP test", "session_id": "mcp-test-session-123"},
+                "arguments": {
+                    "message": "Hello from MCP test",
+                    "session_id": "mcp-test-session-123"
+                },
             }
         },
     )
@@ -32,4 +35,6 @@ def test_mcp_tool_call(client):
     data = response.json()
     assert "result" in data
     assert "content" in data["result"]
-    assert data["result"]["content"][0]["text"] is not None
+    assert len(data["result"]["content"]) > 0
+    assert data["result"]["content"][0]["type"] == "text"
+    assert isinstance(data["result"]["content"][0]["text"], str)

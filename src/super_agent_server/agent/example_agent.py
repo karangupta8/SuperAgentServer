@@ -18,6 +18,7 @@ from .base_agent import AgentRequest, AgentResponse, BaseAgent
 if os.getenv("OPENAI_API_KEY", None) is None:
     raise ValueError("OPENAI_API_KEY environment variable not set.")
 
+
 class ExampleAgent(BaseAgent):
     """
     Example implementation of a LangChain agent.
@@ -28,120 +29,171 @@ class ExampleAgent(BaseAgent):
     def __init__(self):
         super().__init__(
             name="example-agent",
-            description="A simple example agent using OpenAI and LangChain",
+            description="An example LangChain agent with OpenAI integration"
         )
-        self.agent_executor: Optional[AgentExecutor] = None
-        self.chat_history: Dict[str, List[HumanMessage | AIMessage]] = {}
+        self.llm = None
+        self.agent_executor = None
 
     async def initialize(self) -> None:
         """Initialize the LangChain agent."""
-        try:
-            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        # Initialize the LLM
+        self.llm = ChatOpenAI(
+            model=os.getenv("MODEL_NAME", "gpt-3.5-turbo"),
+            temperature=float(os.getenv("TEMPERATURE", "0.7")),
+            api_key=os.getenv("OPENAI_API_KEY")
+        )
 
-            @tool
-            def get_weather(location: str) -> str:
-                """Get the current weather for a location."""
-                return f"The weather in {location} is sunny and 72°F"
+        # Define tools
+        @tool
+        def get_current_time() -> str:
+            """Get the current time."""
+            return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            @tool
-            def get_time() -> str:
-                """Get the current time."""
-                return f"The current time is {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        @tool
+        def calculate(expression: str) -> str:
+            """Calculate a mathematical expression safely."""
+            try:
+                # Simple evaluation for basic math
+                allowed_chars = set("0123456789+-*/.() ")
+                if all(c in allowed_chars for c in expression):
+                    result = eval(expression)
+                    return str(result)
+                else:
+                    return "Error: Invalid characters in expression"
+            except Exception as e:
+                return f"Error: {str(e)}"
 
-            tools = [get_weather, get_time]
+        tools = [get_current_time, calculate]
 
-            prompt = ChatPromptTemplate.from_messages(
-                [
-                    (
-                        "system",
-                        "You are a helpful assistant. You have access to the following tools.",
-                    ),
-                    MessagesPlaceholder(variable_name="chat_history"),
-                    ("user", "{input}"),
-                    MessagesPlaceholder(variable_name="agent_scratchpad"),
-                ]
-            )
+        # Create the agent
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", (
+                "You are a helpful assistant. "
+                "You have access to the following tools."
+            )),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ])
 
-            agent = create_openai_tools_agent(llm, tools, prompt)
-            self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-            print("ExampleAgent initialized successfully.")
-        except Exception as e:
-            print(f"Error initializing ExampleAgent: {e!s}")
-            self.agent_executor = None
+        agent = create_openai_tools_agent(self.llm, tools, prompt)
+        self.agent_executor = AgentExecutor(
+            agent=agent,
+            tools=tools,
+            verbose=True,
+            handle_parsing_errors=True
+        )
 
     async def process(self, request: AgentRequest) -> AgentResponse:
         """Process a request using the LangChain agent."""
         if not self.agent_executor:
-            return AgentResponse(
-                message="Error: Agent not initialized. Please check server logs.",
-            )
-
-        session_id = request.session_id or "default_session"
-        chat_history = self.chat_history.get(session_id, [])
+            raise RuntimeError("Agent not initialized. Call initialize() first.")
 
         try:
-            response = await self.agent_executor.ainvoke(
-                {"input": request.message, "chat_history": chat_history},
-            )
-            output_message = response.get("output", "Sorry, I had trouble processing that.")
+            # Convert our request to LangChain format
+            input_data = {
+                "input": request.message,
+                "chat_history": []  # Could be enhanced with session memory
+            }
 
-            # Update chat history
-            self.chat_history.setdefault(session_id, []).extend(
-                [
-                    HumanMessage(content=request.message),
-                    AIMessage(content=output_message),
-                ]
+            # Run the agent
+            result = await self.agent_executor.ainvoke(input_data)
+
+            # Extract the response
+            output_message = result.get(
+                "output", "Sorry, I had trouble processing that."
             )
 
             return AgentResponse(
                 message=output_message,
                 session_id=request.session_id,
+                metadata={
+                    "agent_type": "langchain",
+                    "model": os.getenv("MODEL_NAME", "gpt-3.5-turbo"),
+                    "tools_available": len(self.agent_executor.tools),
+                    "processing_time": datetime.now().isoformat()
+                }
             )
+
         except Exception as e:
-            print(f"Error processing request for session {session_id}: {e!s}")
             return AgentResponse(
-                message=f"Error processing request: {e!s}",
+                message=f"Error processing request: {str(e)}",
                 session_id=request.session_id,
+                metadata={
+                    "error": True,
+                    "error_type": type(e).__name__,
+                    "agent_type": "langchain"
+                }
             )
 
     def get_schema(self) -> Dict[str, Any]:
-        """Get the agent's schema for adapter generation."""
+        """Get the agent's schema definition."""
         return {
             "name": self.name,
             "description": self.description,
+            "version": "0.1.0",
+            "type": "langchain_agent",
             "input_schema": {
                 "type": "object",
                 "properties": {
-                    "message": {"type": "string", "description": "The input message to the agent", "example": "What time is it?"},
-                    "session_id": {"type": "string", "description": "Session identifier for conversation continuity", "example": "user123_session456"},
+                    "message": {
+                        "type": "string",
+                        "description": "The input message to the agent",
+                        "example": "What time is it?"
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": (
+                            "Session identifier for conversation continuity"
+                        ),
+                        "example": "user123_session456"
+                    }
                 },
-                "required": ["message"],
+                "required": ["message"]
             },
             "output_schema": {
                 "type": "object",
                 "properties": {
-                    "message": {"type": "string", "description": "The agent's response message", "example": "The current time is 2025-09-13 19:15:30"},
-                    "session_id": {"type": "string", "description": "Session identifier", "example": "user123_session456"},
+                    "message": {
+                        "type": "string",
+                        "description": "The agent's response message",
+                        "example": "The current time is 2025-09-13 19:15:30"
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "Session identifier",
+                        "example": "user123_session456"
+                    },
+                    "metadata": {
+                        "type": "object",
+                        "description": "Response metadata"
+                    }
                 },
-                "required": ["message"],
+                "required": ["message"]
             },
             "tools": [
                 {
-                    "name": "get_weather",
-                    "description": "Get the current weather for a location",
-                    "parameters": {
+                    "name": "get_current_time",
+                    "description": "Get the current time",
+                    "input_schema": {
                         "type": "object",
-                        "properties": {"location": {"type": "string", "description": "The location to get weather for"}},
-                        "required": ["location"],
+                        "properties": {},
+                        "required": []
                     }
                 },
                 {
-                    "name": "get_time",
-                    "description": "Get the current time",
-                    "parameters": {
+                    "name": "calculate",
+                    "description": "Calculate a mathematical expression safely",
+                    "input_schema": {
                         "type": "object",
-                        "properties": {},
-                    },
-                },
-            ],
+                        "properties": {
+                            "expression": {
+                                "type": "string",
+                                "description": "Mathematical expression to evaluate"
+                            }
+                        },
+                        "required": ["expression"]
+                    }
+                }
+            ]
         }

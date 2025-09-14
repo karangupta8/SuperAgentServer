@@ -9,12 +9,12 @@ from .server import app, create_app
 
 __version__ = "0.1.0"
 __all__ = [
-    "BaseAgent", 
-    "AgentResponse", 
-    "AgentRequest", 
+    "BaseAgent",
+    "AgentResponse",
+    "AgentRequest",
     "ExampleAgent",
     "AdapterRegistry",
-    "AdapterConfig", 
+    "AdapterConfig",
     "create_app",
     "app"
 ]

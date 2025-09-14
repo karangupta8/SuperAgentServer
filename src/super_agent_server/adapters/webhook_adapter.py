@@ -17,18 +17,27 @@ class GenericWebhookPayload(BaseModel):
 
 
 @router.post("/")
-async def generic_webhook(payload: GenericWebhookPayload, agent: BaseAgent = Depends(get_agent)):
+async def generic_webhook(
+    payload: GenericWebhookPayload,
+    agent: BaseAgent = Depends(get_agent)
+):
     """Generic webhook endpoint."""
     request = AgentRequest(
         message=payload.message,
         session_id=f"{payload.platform}-{payload.user_id}",
-        metadata={"source_protocol": "webhook", "user_id": payload.user_id, "platform": payload.platform},
+        metadata={
+            "source_protocol": "webhook",
+            "user_id": payload.user_id,
+            "platform": payload.platform
+        },
     )
     return await agent.process(request)
 
 
 @router.post("/telegram")
-async def telegram_webhook(request: Request, agent: BaseAgent = Depends(get_agent)):
+async def telegram_webhook(
+    request: Request, agent: BaseAgent = Depends(get_agent)
+):
     """Telegram-specific webhook endpoint."""
     data = await request.json()
     message = data.get("message", {})
@@ -36,12 +45,18 @@ async def telegram_webhook(request: Request, agent: BaseAgent = Depends(get_agen
     chat_id = message.get("chat", {}).get("id")
 
     if not text or not chat_id:
-        raise HTTPException(status_code=400, detail="Invalid Telegram payload")
+        raise HTTPException(
+            status_code=400, detail="Invalid Telegram payload"
+        )
 
     agent_request = AgentRequest(
         message=text,
         session_id=f"telegram-{chat_id}",
-        metadata={"source_protocol": "webhook", "platform": "telegram", "chat_id": chat_id},
+        metadata={
+            "source_protocol": "webhook",
+            "platform": "telegram",
+            "chat_id": chat_id
+        },
     )
     return await agent.process(agent_request)
 
@@ -50,9 +65,18 @@ async def get_manifest(agent: BaseAgent):
     """Generate the manifest for the webhook adapter."""
     return {
         "name": "Webhook Adapter",
-        "description": "Allows the agent to receive messages via HTTP webhooks from various platforms.",
+        "description": (
+            "Allows the agent to receive messages via HTTP webhooks "
+            "from various platforms"
+        ),
         "endpoints": [
-            {"path": "/webhook/", "description": "Generic webhook endpoint."},
-            {"path": "/webhook/telegram", "description": "Telegram-specific webhook."},
+            {
+                "path": "/webhook/",
+                "description": "Generic webhook endpoint"
+            },
+            {
+                "path": "/webhook/telegram",
+                "description": "Telegram-specific webhook"
+            },
         ],
     }

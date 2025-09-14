@@ -27,7 +27,7 @@ from pydantic import BaseModel, ValidationError
 
 from . import adapters, dependencies
 from .adapters.schema_generator import SchemaGenerator
-from .agent.base_agent import AgentRequest, AgentResponse, BaseAgent
+from .agent.base_agent import AgentRequest, BaseAgent
 from .agent.example_agent import ExampleAgent
 from .config import settings
 
@@ -37,8 +37,10 @@ class WebSocketInput(BaseModel):
     input: str
     chat_history: list = []
 
+
 class WebSocketMessage(BaseModel):
     input: WebSocketInput
+
 
 # --- End Pydantic Models ---
 
@@ -48,6 +50,7 @@ load_dotenv(find_dotenv())
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
     """Factory to create a lifespan handler, optionally with a pre-configured agent."""
@@ -68,10 +71,12 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
                     await agent_instance.initialize()
                 except Exception as e:
                     logger.error(f"Failed to initialize default agent: {e}")
-                    agent_instance = None # Ensure it's None on failure
+                    agent_instance = None  # Ensure it's None on failure
             else:
-                logger.warning("OPENAI_API_KEY not set. Agent initialization will be skipped.")
-        
+                logger.warning(
+                    "OPENAI_API_KEY not set. Agent initialization will be skipped."
+                )
+
         dependencies.agent = agent_instance
 
         # Always register adapters. The `get_agent` dependency will handle
@@ -94,7 +99,9 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
             logger.error(f"Failed to configure adapters: {e}")
 
         if dependencies.agent:
-            logger.info("SuperAgentServer started successfully with an initialized agent.")
+            logger.info(
+                "SuperAgentServer started successfully with an initialized agent."
+            )
         else:
             logger.warning("Server is starting without a functional agent.")
 
@@ -103,6 +110,7 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
         logger.info("Shutting down SuperAgentServer...")
 
     return lifespan
+
 
 def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
     """Create and configure a FastAPI app instance."""
@@ -116,10 +124,17 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
     )
 
     # Add CORS middleware
-    allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+    allowed_origins_str = os.getenv(
+        "ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+    )
+    allowed_origins = [
+        origin.strip() for origin in allowed_origins_str.split(",")
+    ]
     if "*" in allowed_origins:
-        logger.warning("CORS is configured to allow all origins. This is insecure for production.")
+        logger.warning(
+            "CORS is configured to allow all origins. "
+            "This is insecure for production."
+        )
 
     app.add_middleware(
         CORSMiddleware,
@@ -151,7 +166,10 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         }
 
     @app.post("/agent/chat")
-    async def agent_chat(request: AgentRequest, agent: BaseAgent = Depends(dependencies.get_agent)):
+    async def agent_chat(
+        request: AgentRequest,
+        agent: BaseAgent = Depends(dependencies.get_agent)
+    ):
         """Direct agent chat endpoint."""
         try:
             response = await agent(request)
@@ -161,12 +179,17 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/agent/schema")
-    async def get_agent_schema(agent: BaseAgent = Depends(dependencies.get_agent)):
+    async def get_agent_schema(
+        agent: BaseAgent = Depends(dependencies.get_agent)
+    ):
         """Get the agent's schema."""
         return agent.get_schema()
 
     @app.get("/manifests", tags=["Adapters"])
-    async def get_all_manifests(request: Request, agent: BaseAgent = Depends(dependencies.get_agent)):
+    async def get_all_manifests(
+        request: Request,
+        agent: BaseAgent = Depends(dependencies.get_agent)
+    ):
         """
         Get the manifests for all enabled adapters.
 
@@ -178,8 +201,9 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         all_manifests = generator.generate_all_manifests(agent)
 
         enabled_manifests = {}
-        # We filter the generated manifests to only include the ones enabled in settings.
-        # The keys in `all_manifests` are 'openapi', 'mcp', 'webhook', 'a2a', 'acp'.
+        # We filter the generated manifests to only include the ones enabled
+        # in settings. The keys in `all_manifests` are 'openapi', 'mcp',
+        # 'webhook', 'a2a', 'acp'.
         for name in all_manifests.keys():
             if name == "openapi":  # openapi is not a typical adapter, skip it.
                 continue
@@ -196,18 +220,25 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         await websocket.accept()
         logger.info("WebSocket connection established")
 
-        agent = dependencies.agent # Get the agent from the dependencies module
+        agent = dependencies.agent  # Get the agent from the dependencies module
         if agent is None:
-            logger.warning("WebSocket connection rejected: Agent not initialized.")
-            await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Agent not initialized. Server is in a degraded state."}}))
-            await websocket.close(code=1011) # Internal Error
+            logger.warning(
+                "WebSocket connection rejected: Agent not initialized."
+            )
+            await websocket.send_text(json.dumps({
+                "event": "error",
+                "data": {
+                    "error": "Agent not initialized. Server is in a degraded state."
+                }
+            }))
+            await websocket.close(code=1011)  # Internal Error
             return
-        
+
         try:
             while True:
                 data = await websocket.receive_text()
                 logger.info(f"Received WebSocket message: {data}")
-                
+
                 message = ""
                 chat_history = []
 
@@ -220,35 +251,58 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                         chat_history = message_data.input.chat_history
                     else:
                         # Handle other potential formats if necessary, or raise error
-                        raise ValueError("Invalid message format. Expected a list with one object.")
-                    
+                        raise ValueError(
+                            "Invalid message format. Expected a list with one object."
+                        )
+
                     if not message:
-                        await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Input message cannot be empty."}}))
+                        await websocket.send_text(json.dumps({
+                            "event": "error",
+                            "data": {"error": "Input message cannot be empty."}
+                        }))
                         continue
 
-                    await websocket.send_text(json.dumps({"event": "on_chat_model_start", "data": {"chunk": {"content": ""}}}))
-                    
+                    await websocket.send_text(json.dumps({
+                        "event": "on_chat_model_start",
+                        "data": {"chunk": {"content": ""}}
+                    }))
+
                     input_dict = {"input": message, "chat_history": chat_history}
-                    
+
                     async for chunk in agent.agent_executor.astream(input_dict):
                         if "messages" in chunk:
                             for message_chunk in chunk["messages"]:
                                 if hasattr(message_chunk, "content"):
                                     content = message_chunk.content
                                     if content:
-                                        await websocket.send_text(json.dumps({"event": "on_chat_model_stream", "data": {"chunk": {"content": content}}}))
-                    
-                    await websocket.send_text(json.dumps({"event": "on_chat_model_end", "data": {}}))
-                    
+                                        await websocket.send_text(json.dumps({
+                                            "event": "on_chat_model_stream",
+                                            "data": {"chunk": {"content": content}}
+                                        }))
+
+                    await websocket.send_text(json.dumps({
+                        "event": "on_chat_model_end",
+                        "data": {}
+                    }))
+
                 except (ValidationError, ValueError) as e:
                     logger.warning(f"Invalid WebSocket message format: {e}")
-                    await websocket.send_text(json.dumps({"event": "error", "data": {"error": f"Invalid message format: {e}"}}))
+                    await websocket.send_text(json.dumps({
+                        "event": "error",
+                        "data": {"error": f"Invalid message format: {e}"}
+                    }))
                 except json.JSONDecodeError:
-                    await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Invalid JSON format"}}))
+                    await websocket.send_text(json.dumps({
+                        "event": "error",
+                        "data": {"error": "Invalid JSON format"}
+                    }))
                 except Exception as e:
                     logger.error(f"Error processing WebSocket message: {e}")
-                    await websocket.send_text(json.dumps({"event": "error", "data": {"error": str(e)}}))
-                    
+                    await websocket.send_text(json.dumps({
+                        "event": "error",
+                        "data": {"error": str(e)}
+                    }))
+
         except WebSocketDisconnect:
             logger.info("WebSocket connection closed")
         except Exception as e:
@@ -267,8 +321,10 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
 
     return app
 
+
 # Create the default app instance
 app = create_app()
+
 
 if __name__ == "__main__":
     uvicorn.run(

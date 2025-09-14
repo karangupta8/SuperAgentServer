@@ -24,8 +24,12 @@ except ImportError:
 
 def pytest_configure(config):
     """Register custom markers."""
-    config.addinivalue_line("markers", "requires_agent: mark test as requiring an initialized agent")
-    config.addinivalue_line("markers", "requires_broker: mark test as requiring a running message broker")
+    config.addinivalue_line(
+        "markers", "requires_agent: mark test as requiring an initialized agent"
+    )
+    config.addinivalue_line(
+        "markers", "requires_broker: mark test as requiring a running message broker"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -49,7 +53,8 @@ def client():
             for _ in range(10):  # Try for a few seconds
                 try:
                     response = c.get("/health")
-                    if response.status_code == 200 and response.json().get("agent_initialized"):
+                    if (response.status_code == 200 and
+                            response.json().get("agent_initialized")):
                         break
                 except Exception:
                     pass
@@ -89,7 +94,9 @@ def mock_openai_key():
 def _is_broker_running():
     """Check if the message broker is running and accessible."""
     acp_enabled = os.getenv("ACP_ENABLED", "True").lower() == "true"
-    broker_url = os.getenv("ACP_BROKER_URL", "amqp://guest:guest@localhost:5672/")
+    broker_url = os.getenv(
+        "ACP_BROKER_URL", "amqp://guest:guest@localhost:5672/"
+    )
 
     if not acp_enabled or pika is None:
         return False

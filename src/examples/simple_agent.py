@@ -6,44 +6,64 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add the project's 'src' directory to the Python path to allow running this script directly
+# Add the project's 'src' directory to the Python path to allow running this
+# script directly
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from super_agent_server.agent.base_agent import AgentRequest, AgentResponse, BaseAgent
+from super_agent_server.agent.base_agent import (
+    AgentRequest,
+    AgentResponse,
+    BaseAgent
+)
 from super_agent_server.server import create_app
 
 
 class SimpleChatAgent(BaseAgent):
     """A simple chat agent that echoes messages with some processing."""
-    
+
     def __init__(self):
         super().__init__(
             name="simple-chat",
             description="A simple chat agent that processes messages"
         )
-    
+
     async def initialize(self) -> None:
         """Initialize the simple agent."""
         # No special initialization needed for this simple agent
         pass
-    
+
     async def process(self, request: AgentRequest) -> AgentResponse:
         """Process a simple chat request."""
         message = request.message.lower()
-        
+
         # Simple response logic
         if "hello" in message:
-            response = f"Hello! How can I help you today? (Session: {request.session_id or 'new'})"
+            response = (
+                f"Hello! How can I help you today? "
+                f"(Session: {request.session_id or 'new'})"
+            )
         elif "weather" in message:
-            response = "I don't have access to real-time weather data, but I can help you with other questions!"
+            response = (
+                "I don't have access to real-time weather data, "
+                "but I can help you with other questions!"
+            )
         elif "time" in message:
             from datetime import datetime
-            response = f"The current time is {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            response = (
+                f"The current time is "
+                f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
         elif "help" in message:
-            response = "I'm a simple chat agent. Try asking about the weather, time, or just say hello!"
+            response = (
+                "I'm a simple chat agent. Try asking about the weather, "
+                "time, or just say hello!"
+            )
         else:
-            response = f"You said: '{request.message}'. That's interesting! Tell me more."
-        
+            response = (
+                f"You said: '{request.message}'. "
+                f"That's interesting! Tell me more."
+            )
+
         return AgentResponse(
             message=response,
             session_id=request.session_id,
@@ -52,7 +72,7 @@ class SimpleChatAgent(BaseAgent):
                 "input_length": len(request.message)
             }
         )
-    
+
     def get_schema(self) -> dict:
         """Get the agent's schema."""
         return {
@@ -97,14 +117,15 @@ class SimpleChatAgent(BaseAgent):
 simple_agent = SimpleChatAgent()
 
 # Create the FastAPI app with the agent.
-# This allows `uvicorn` to discover the `app` object when run from the command line.
+# This allows `uvicorn` to discover the `app` object when run from the
+# command line.
 app = create_app(simple_agent)
 
 
 async def main():
     """Example usage of the simple agent."""
     # The agent is initialized as part of the app's lifespan
-    
+
     # Test the agent directly
     print("Testing Simple Agent:")
     print("=" * 50)
@@ -116,9 +137,12 @@ async def main():
         "Help me understand this",
         "Tell me about yourself"
     ]
-    
+
     for message in test_messages:
-        request = AgentRequest(message=message, session_id="direct-test-session")
+        request = AgentRequest(
+            message=message,
+            session_id="direct-test-session"
+        )
         response = await simple_agent(request)
         print(f"User: {message}")
         print(f"Agent: {response.message}")
@@ -126,7 +150,8 @@ async def main():
         print("-" * 30)
 
     print("\nFastAPI app has been created with the SimpleChatAgent.")
-    print("To run the server, execute the following command from your project root:")
+    print("To run the server, execute the following command from your "
+          "project root:")
     print("uvicorn src.examples.simple_agent:app --reload --port 8000")
     print("Available endpoints:")
     print("- GET / - Server info")

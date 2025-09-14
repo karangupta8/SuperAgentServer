@@ -3,7 +3,7 @@ Base adapter system for exposing agents across different protocols.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Optional, Type
 
 from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel

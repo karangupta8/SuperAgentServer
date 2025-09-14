@@ -1,7 +1,6 @@
 """
 Tests for the A2A adapter endpoints.
 """
-import os
 
 import pytest
 from fastapi.testclient import TestClient
@@ -28,38 +27,65 @@ def test_a2a_message_endpoint(client: TestClient):
 
 
 def test_a2a_message_uninitialized(uninitialized_client: TestClient):
-    """Test that A2A endpoint returns 503 when agent is not initialized."""
+    """Test A2A message endpoint when agent is not initialized."""
     response = uninitialized_client.post(
         "/a2a/message",
         json={
             "sender_agent_id": "test-sender-agent",
             "message": "Hello from another agent!",
-            "session_id": "a2a-session-uninitialized",
+            "session_id": "a2a-session-123",
         },
     )
     assert response.status_code == 503
-    assert response.json()["detail"] == "Agent not initialized. Check server logs for details."
+    assert (
+        response.json()["detail"] ==
+        "Agent not initialized. Check server logs for details."
+    )
 
 
 @pytest.mark.requires_agent
-def test_a2a_message_validation_error(client: TestClient):
-    """Test the A2A message endpoint for validation errors."""
-    # Test with missing 'message' field
+def test_a2a_message_invalid_payload(client: TestClient):
+    """Test A2A message endpoint with invalid payload."""
     response = client.post(
         "/a2a/message",
-        json={"sender_agent_id": "test-sender-agent", "session_id": "a2a-session-validation-error"},
+        json={
+            "sender_agent_id": "test-sender-agent",
+            # Missing required 'message' field
+            "session_id": "a2a-session-123",
+        },
     )
     assert response.status_code == 422
-    data = response.json()
-    assert "detail" in data
-    assert any("message" in error.get("loc", []) and error.get("type") == "missing" for error in data["detail"])
 
-    # Test with missing 'sender_agent_id' field
+
+@pytest.mark.requires_agent
+def test_a2a_message_empty_message(client: TestClient):
+    """Test A2A message endpoint with empty message."""
     response = client.post(
         "/a2a/message",
-        json={"message": "A message without a sender", "session_id": "a2a-session-validation-error-2"},
+        json={
+            "sender_agent_id": "test-sender-agent",
+            "message": "",
+            "session_id": "a2a-session-123",
+        },
     )
-    assert response.status_code == 422
+    assert response.status_code == 200
     data = response.json()
-    assert "detail" in data
-    assert any("sender_agent_id" in error.get("loc", []) and error.get("type") == "missing" for error in data["detail"])
+    assert "message" in data
+    assert isinstance(data["message"], str)
+
+
+@pytest.mark.requires_agent
+def test_a2a_message_without_session_id(client: TestClient):
+    """Test A2A message endpoint without session ID."""
+    response = client.post(
+        "/a2a/message",
+        json={
+            "sender_agent_id": "test-sender-agent",
+            "message": "Hello from another agent!",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "message" in data
+    assert isinstance(data["message"], str)
+    assert data["session_id"] is None

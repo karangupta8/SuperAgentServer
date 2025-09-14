@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Add the project's 'src' directory to the Python path to allow running this script directly
+# Add the project's 'src' directory to the Python path to allow running this
+# script directly
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 from super_agent_server.adapters.base_adapter import AdapterConfig
@@ -158,7 +159,7 @@ DEVELOPMENT_CONFIG = {
 def create_agent_from_config(config: Dict[str, Any]):
     """Create an agent from configuration."""
     agent_config = config["agent"]
-    
+
     if agent_config["type"] == "example":
         # ExampleAgent now reads its configuration from environment variables
         # The config dictionary values are for documentation/reference
@@ -167,10 +168,12 @@ def create_agent_from_config(config: Dict[str, Any]):
         raise ValueError(f"Unknown agent type: {agent_config['type']}")
 
 
-def create_adapter_configs(config: Dict[str, Any]) -> Dict[str, AdapterConfig]:
+def create_adapter_configs(
+    config: Dict[str, Any]
+) -> Dict[str, AdapterConfig]:
     """Create adapter configurations from config."""
     adapter_configs = {}
-    
+
     for name, adapter_config in config["adapters"].items():
         if adapter_config["enabled"]:
             adapter_configs[name] = AdapterConfig(
@@ -179,7 +182,7 @@ def create_adapter_configs(config: Dict[str, Any]) -> Dict[str, AdapterConfig]:
                 enabled=True,
                 config=adapter_config["config"]
             )
-    
+
     return adapter_configs
 
 
@@ -193,27 +196,25 @@ def generate_manifests(agent, app):
 if __name__ == "__main__":
     import asyncio
 
-    from fastapi import FastAPI
-    
     async def main():
         # Use development config
         config = DEVELOPMENT_CONFIG
-        
+
         # Create agent
         agent = create_agent_from_config(config)
         await agent.initialize()
-        
+
         # Create app
         app = create_app(agent)
-        
+
         # Generate manifests
         manifests = generate_manifests(agent, app)
-        
+
         print("Generated Manifests:")
         print("=" * 50)
         for name, manifest in manifests.items():
             print(f"\n{name.upper()} Manifest:")
             print("-" * 30)
             print(manifest)
-    
+
     asyncio.run(main())

@@ -1,14 +1,11 @@
 """
 Automated tests for SuperAgentServer using pytest and TestClient.
 """
-import asyncio
 import os
 import time
 
 import pytest
 from fastapi.testclient import TestClient
-
-from src.super_agent_server.server import app
 
 
 def test_root(client: TestClient):
@@ -36,7 +33,8 @@ def test_health_check(client: TestClient):
 def test_agent_chat(client: TestClient):
     """Test the direct agent chat endpoint."""
     response = client.post(
-        "/agent/chat", json={"message": "Hello there!", "session_id": "pytest-session"}
+        "/agent/chat",
+        json={"message": "Hello there!", "session_id": "pytest-session"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -108,10 +106,14 @@ def test_webhook_generic(client: TestClient):
 def test_agent_chat_uninitialized(uninitialized_client: TestClient):
     """Test that agent chat returns 503 when agent is not initialized."""
     response = uninitialized_client.post(
-        "/agent/chat", json={"message": "Hello there!", "session_id": "pytest-session"}
+        "/agent/chat",
+        json={"message": "Hello there!", "session_id": "pytest-session"}
     )
     assert response.status_code == 503
-    assert response.json()["detail"] == "Agent not initialized. Check server logs for details."
+    assert (
+        response.json()["detail"] ==
+        "Agent not initialized. Check server logs for details."
+    )
 
 
 @pytest.mark.requires_agent
@@ -121,7 +123,9 @@ async def test_websocket_chat_stream(client: TestClient):
     try:
         with client.websocket_connect("/chat/stream") as websocket:
             # Send a message in LangServe format
-            input_data = {"input": {"input": "Hello, stream!", "chat_history": []}}
+            input_data = {
+                "input": {"input": "Hello, stream!", "chat_history": []}
+            }
             websocket.send_json([input_data])
 
             # Receive and validate events
@@ -150,9 +154,13 @@ async def test_websocket_chat_stream(client: TestClient):
             if not end_event_received:
                 pytest.fail(f"WebSocket test timed out after {timeout} seconds.")
 
-            assert start_event_received, "Did not receive the 'on_chat_model_start' event"
+            assert start_event_received, (
+                "Did not receive the 'on_chat_model_start' event"
+            )
             assert len(stream_content) > 0, "Streamed content was empty"
-            assert end_event_received, "Did not receive the 'on_chat_model_end' event"
+            assert end_event_received, (
+                "Did not receive the 'on_chat_model_end' event"
+            )
     except Exception as e:
         pytest.fail(f"WebSocket test failed with an exception: {e}")
 

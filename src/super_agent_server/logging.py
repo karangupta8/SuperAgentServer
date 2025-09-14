@@ -12,10 +12,12 @@ import yaml
 
 def setup_logging(config_path: Optional[str] = None) -> None:
     """Set up logging configuration."""
-    
+
     if config_path is None:
-        config_path = Path(__file__).parent.parent.parent / "config" / "logging.yaml"
-    
+        config_path = (
+            Path(__file__).parent.parent.parent / "config" / "logging.yaml"
+        )
+
     if Path(config_path).exists():
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)

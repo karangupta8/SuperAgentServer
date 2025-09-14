@@ -19,7 +19,9 @@ try:
 except ImportError:
     pika = None
 
-ACP_BROKER_URL = os.getenv("ACP_BROKER_URL", "amqp://guest:guest@localhost:5672/")
+ACP_BROKER_URL = os.getenv(
+    "ACP_BROKER_URL", "amqp://guest:guest@localhost:5672/"
+)
 agent_queue = os.getenv("ACP_AGENT_QUEUE", "super_agent_acp")
 
 
@@ -28,37 +30,71 @@ agent_queue = os.getenv("ACP_AGENT_QUEUE", "super_agent_acp")
 def test_acp_message_e2e():
     """
     End-to-end test for the ACP adapter.
-    Sends a message via RabbitMQ and waits for a reply.
+
+    This test simulates a complete ACP message flow:
+    1. Send a message to the agent queue
+    2. Wait for a response
+    3. Verify the response format and content
     """
+    if pika is None:
+        pytest.skip("pika library not installed")
+
+    # Create a unique correlation ID for this test
+    correlation_id = str(uuid.uuid4())
+    response_queue = f"response_{correlation_id}"
+
+    # Connect to the broker
     connection = pika.BlockingConnection(pika.URLParameters(ACP_BROKER_URL))
     channel = connection.channel()
 
-    # Declare a temporary, exclusive queue for the reply
-    result = channel.queue_declare(queue="", exclusive=True)
-    reply_queue_name = result.method.queue
+    # Declare the response queue
+    channel.queue_declare(queue=response_queue, exclusive=True)
 
-    correlation_id = str(uuid.uuid4())
-    message_body = {
-        "sender_agent_id": "pytest-acp-sender",
-        "message": "Hello from ACP test",
-        "session_id": "acp-test-session-123",
+    # Prepare the message
+    message = {
+        "sender_agent_id": "test-sender-agent",
+        "message": "Hello from ACP test!",
+        "session_id": f"acp-test-{correlation_id}",
     }
 
+    # Send the message
     channel.basic_publish(
         exchange="",
         routing_key=agent_queue,
-        properties=pika.BasicProperties(reply_to=reply_queue_name, correlation_id=correlation_id),
-        body=json.dumps(message_body),
+        body=json.dumps(message),
+        properties=pika.BasicProperties(
+            reply_to=response_queue,
+            correlation_id=correlation_id,
+        ),
     )
 
-    # Wait for and retrieve the reply
-    method_frame, properties, body = channel.basic_get(queue=reply_queue_name, auto_ack=True)
+    # Wait for response
+    response_received = False
+    response_data = None
 
-    assert body is not None, "Did not receive a response from the agent via ACP"
-    assert properties.correlation_id == correlation_id, "Correlation ID of response does not match"
-    response_data = json.loads(body)
-    assert "message" in response_data
-    assert isinstance(response_data["message"], str)
-    assert response_data["session_id"] == "acp-test-session-123"
+    def callback(ch, method, properties, body):
+        nonlocal response_received, response_data
+        if properties.correlation_id == correlation_id:
+            response_data = json.loads(body)
+            response_received = True
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    channel.basic_consume(
+        queue=response_queue, on_message_callback=callback, auto_ack=False
+    )
+
+    # Wait for response with timeout
+    start_time = time.time()
+    while not response_received and (time.time() - start_time) < 10:
+        connection.process_data_events(time_limit=0.1)
 
     connection.close()
+
+    # Verify response
+    assert response_received, "No response received within timeout"
+    assert response_data is not None
+    assert "message" in response_data
+    assert isinstance(response_data["message"], str)
+    assert response_data["session_id"] == f"acp-test-{correlation_id}"
+    assert "metadata" in response_data
+    assert response_data["metadata"]["source_protocol"] == "acp"
