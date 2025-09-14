@@ -357,8 +357,10 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # For trusted publishing
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v4
       - name: Install dependencies
@@ -368,7 +370,9 @@ jobs:
       - name: Build package
         run: python -m build
       - name: Publish to PyPI
-        run: twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # with:
+        #   password: ${{ secrets.PYPI_API_TOKEN }} # Less secure, prefer trusted publishing
 ```
 
 ## Contributing Guidelines
@@ -441,7 +445,7 @@ Brief description of changes
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.6.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -449,23 +453,23 @@ repos:
       - id: check-added-large-files
 
   - repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 24.4.2
     hooks:
       - id: black
         language_version: python3
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
 
   - repo: https://github.com/pycqa/flake8
-    rev: 6.0.0
+    rev: 7.0.0
     hooks:
       - id: flake8
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.3.0
+    rev: v1.10.0
     hooks:
       - id: mypy
         additional_dependencies: [types-all]

@@ -5,6 +5,8 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
+[![PyPI version](https://badge.fury.io/py/superagentserver.svg)](https://badge.fury.io/py/superagentserver)
+[![Build Status](https://github.com/superagentserver/super-agent-server/actions/workflows/ci.yml/badge.svg)](https://github.com/superagentserver/super-agent-server/actions/workflows/ci.yml)
 
 > **Solve the fragmentation in today's agentic ecosystem** by making one agent definition **universally accessible** through standardized adapters.
 
@@ -121,6 +123,19 @@ curl -X POST "http://localhost:8000/mcp/tools/call" \
      }'
 ```
 
+> **PowerShell:**
+> ```powershell
+> # List available tools
+> Invoke-WebRequest -Uri "http://localhost:8000/mcp/tools/list" -Method POST
+>
+> # Call a tool
+> $body = @{
+>   name = "agent_chat"
+>   arguments = @{ message = "Hello from MCP!"; session_id = "mcp-session" }
+> } | ConvertTo-Json
+> Invoke-WebRequest -Uri "http://localhost:8000/mcp/tools/call" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body
+> ```
+
 ### Webhook Integration
 
 ```bash
@@ -143,6 +158,23 @@ curl -X POST "http://localhost:8000/webhook/telegram" \
          "chat": {"id": 123456789}
        }
      }'
+```
+
+> **PowerShell:**
+> ```powershell
+> # Generic webhook
+> $body1 = @{ message = "Hello from webhook!"; user_id = "user123"; platform = "custom" } | ConvertTo-Json
+> Invoke-WebRequest -Uri "http://localhost:8000/webhook/webhook" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body1
+>
+> # Telegram webhook
+> $body2 = @{
+>   message = @{
+>     text = "Hello from Telegram!"
+>     from = @{ id = 123456789 }
+>     chat = @{ id = 123456789 }
+>   }
+> } | ConvertTo-Json
+> Invoke-WebRequest -Uri "http://localhost:8000/webhook/telegram" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body2
 ```
 
 ## 🛠️ Creating Custom Agents
