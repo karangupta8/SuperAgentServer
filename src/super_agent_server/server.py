@@ -8,7 +8,6 @@ Main FastAPI server that exposes LangChain agents across multiple protocols.
 import json
 import logging
 import os
-import importlib
 from contextlib import asynccontextmanager, suppress
 from typing import Optional
 
@@ -53,16 +52,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def _import_class(class_path: str) -> type:
-    """Dynamically import a class from a string path (e.g., 'module.submodule:ClassName')."""
-    try:
-        module_path, class_name = class_path.rsplit(":", 1)
-        module = importlib.import_module(module_path)
-        return getattr(module, class_name)
-    except (ImportError, AttributeError, ValueError) as e:
-        raise ImportError(f"Could not import class '{class_path}'") from e
-
-
 def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
     """Factory to create a lifespan handler, optionally with a pre-configured agent."""
     @asynccontextmanager
@@ -74,17 +63,14 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
 
         # If no agent is pre-configured, try to initialize the default one
         if agent_instance is None:
-            agent_class_path = os.getenv(
-                "AGENT_CLASS", "super_agent_server.agent.example_agent:ExampleAgent"
-            )
-            if os.getenv("OPENAI_API_KEY"):
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if openai_api_key:
                 try:
-                    logger.info(f"Initializing agent from: {agent_class_path}")
-                    AgentClass = _import_class(agent_class_path)
-                    agent_instance = AgentClass()
+                    logger.info("Initializing default ExampleAgent...")
+                    agent_instance = ExampleAgent()
                     await agent_instance.initialize()
                 except Exception as e:
-                    logger.error(f"Failed to initialize agent from {agent_class_path}: {e}")
+                    logger.error(f"Failed to initialize default agent: {e!s}")
                     agent_instance = None  # Ensure it's None on failure
             else:
                 logger.warning(

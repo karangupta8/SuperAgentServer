@@ -5,7 +5,6 @@ Tests for the Webhook adapter endpoints.
 import pytest
 
 
-@pytest.mark.requires_agent
 def test_webhook_generic_endpoint(client):
     """Test the generic webhook endpoint."""
     response = client.post(
