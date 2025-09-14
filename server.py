@@ -8,7 +8,7 @@ import os
 import logging
 from typing import Dict, Any, Optional
 from contextlib import asynccontextmanager, suppress
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -49,6 +49,12 @@ adapter_registry.register_adapter_type("webhook", WebhookAdapter)
 
 # Global agent instance
 agent: Optional[BaseAgent] = None
+
+async def get_agent() -> BaseAgent:
+    """Dependency to get the initialized agent instance."""
+    if agent is None:
+        raise HTTPException(status_code=503, detail="Agent not initialized. Check server logs for details.")
+    return agent
 
 def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
     """Factory to create a lifespan handler, optionally with a pre-configured agent."""
@@ -155,11 +161,8 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         return adapter_registry.get_manifests()
 
     @app.post("/agent/chat")
-    async def agent_chat(request: AgentRequest):
+    async def agent_chat(request: AgentRequest, agent: BaseAgent = Depends(get_agent)):
         """Direct agent chat endpoint."""
-        if agent is None:
-            raise HTTPException(status_code=503, detail="Agent not initialized")
-        
         try:
             response = await agent(request)
             return response
@@ -168,11 +171,8 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/agent/schema")
-    async def get_agent_schema():
+    async def get_agent_schema(agent: BaseAgent = Depends(get_agent)):
         """Get the agent's schema."""
-        if agent is None:
-            raise HTTPException(status_code=503, detail="Agent not initialized")
-        
         return agent.get_schema()
 
     @app.get("/adapters")
@@ -196,6 +196,13 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         """WebSocket endpoint for streaming chat with the agent."""
         await websocket.accept()
         logger.info("WebSocket connection established")
+
+        # Check for agent availability once upon connection
+        if agent is None:
+            logger.warning("WebSocket connection rejected: Agent not initialized.")
+            await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Agent not initialized. Server is in a degraded state."}}))
+            await websocket.close(code=1011) # Internal Error
+            return
         
         try:
             while True:
@@ -215,10 +222,6 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                     else:
                         # Handle other potential formats if necessary, or raise error
                         raise ValueError("Invalid message format. Expected a list with one object.")
-                    
-                    if agent is None:
-                        await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Agent not initialized"}}))
-                        continue
                     
                     if not message:
                         await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Input message cannot be empty."}}))

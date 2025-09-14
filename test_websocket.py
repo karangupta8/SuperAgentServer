@@ -58,7 +58,7 @@ async def test_websocket_communication(websocket):
     # Send a message in LangServe format
     input_data = {
         "input": {
-            "input": "What time is it in Amsterdam and SF, Cali?",
+            "input": "What time is it in London, Amsterdam and SF, Cali?",
             "chat_history": []
         }
     }
