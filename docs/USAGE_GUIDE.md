@@ -166,6 +166,15 @@ app = create_app(agent)
    curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
         -d "url=${WEBHOOK_BASE_URL}/webhook/telegram"
    ```
+   > **PowerShell:**
+   > ```powershell
+   > # Replace <YOUR_BOT_TOKEN> and ${WEBHOOK_BASE_URL} with your values
+   > $botToken = "<YOUR_BOT_TOKEN>"
+   > $webhookBaseUrl = "${WEBHOOK_BASE_URL}"
+   > Invoke-WebRequest -Uri "https://api.telegram.org/bot$botToken/setWebhook" `
+   >   -Method POST `
+   >   -Body @{url = "$webhookBaseUrl/webhook/telegram"}
+   ```
 
 3. **Configure your bot token in .env:**
    ```bash
@@ -370,34 +379,3 @@ def cached_response(message: str) -> str:
 3. **Rate Limiting:** Implement rate limiting for production use
 4. **Input Validation:** Validate all inputs to prevent injection attacks
 5. **HTTPS:** Use HTTPS in production environments
-
-## Summary of Changes:
-
-### 1. **Updated `env.example`:**
-- Added `TELEGRAM_BOT_TOKEN` for Telegram bot authentication
-- Added `SLACK_BOT_TOKEN` for Slack bot authentication  
-- Added `DISCORD_BOT_TOKEN` for Discord bot authentication
-- Added `WEBHOOK_BASE_URL` for configurable webhook URLs
-
-### 2. **Enhanced `adapters/webhook_adapter.py`:**
-- Added bot token initialization in constructor
-- Added `_send_telegram_message()` method to send responses back to Telegram
-- Added `_send_slack_message()` method to send responses back to Slack
-- Added `_send_discord_message()` method to send responses back to Discord
-- Modified webhook endpoints to automatically send responses back to users
-- Updated message parsing to use correct IDs for sending responses
-
-### 3. **Updated `docs/USAGE_GUIDE.md`:**
-- Added instructions for getting bot tokens from each platform
-- Added `.env` configuration steps for each platform
-- Updated webhook setup instructions to use environment variables
-
-## How it works now:
-
-1. **Developer sets up bot tokens** in their `.env` file
-2. **Webhook receives message** from platform (Telegram/Slack/Discord)
-3. **Agent processes the message** and generates a response
-4. **Webhook automatically sends the response back** to the user on the same platform
-5. **User receives the response** directly in their chat
-
-The bot will now have full two-way communication with users on all supported platforms!

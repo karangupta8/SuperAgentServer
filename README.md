@@ -95,6 +95,14 @@ curl -X POST "http://localhost:8000/agent/chat" \
      }'
 ```
 
+> **PowerShell:**
+> ```powershell
+> Invoke-WebRequest -Uri "http://localhost:8000/agent/chat" `
+>   -Method POST `
+>   -Headers @{"Content-Type"="application/json"} `
+>   -Body '{"message": "What is the weather like?", "session_id": "user123"}'
+```
+
 ### MCP Integration
 
 ```bash

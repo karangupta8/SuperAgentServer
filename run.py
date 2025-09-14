@@ -74,7 +74,7 @@ def main():
     print("  - GET  /agent/schema - Agent schema")
     print("  - POST /mcp/tools/list - MCP tools")
     print("  - POST /mcp/tools/call - MCP tool call")
-    print("  - POST /webhook/webhook - Generic webhook")
+    print("  - POST /webhook - Generic webhook")
     print("  - POST /webhook/telegram - Telegram webhook")
     print("  - POST /webhook/slack - Slack webhook")
     print("  - POST /webhook/discord - Discord webhook")

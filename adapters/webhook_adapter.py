@@ -52,7 +52,7 @@ class WebhookAdapter(BaseAdapter):
     def _setup_routes(self) -> None:
         """Set up webhook-specific routes."""
         
-        @self.router.post("/webhook")
+        @self.router.post("/")
         async def webhook_endpoint(request: WebhookRequest):
             """Main webhook endpoint for receiving messages."""
             return await self._process_request({
@@ -63,7 +63,7 @@ class WebhookAdapter(BaseAdapter):
                 "metadata": request.metadata or {}
             })
         
-        @self.router.post("/webhook/telegram")
+        @self.router.post("/telegram")
         async def telegram_webhook(request: Request):
             """Telegram-specific webhook endpoint."""
             try:
@@ -82,7 +82,7 @@ class WebhookAdapter(BaseAdapter):
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid Telegram webhook: {str(e)}")
         
-        @self.router.post("/webhook/slack")
+        @self.router.post("/slack")
         async def slack_webhook(request: Request):
             """Slack-specific webhook endpoint."""
             try:
@@ -101,7 +101,7 @@ class WebhookAdapter(BaseAdapter):
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid Slack webhook: {str(e)}")
         
-        @self.router.post("/webhook/discord")
+        @self.router.post("/discord")
         async def discord_webhook(request: Request):
             """Discord-specific webhook endpoint."""
             try:
@@ -120,7 +120,7 @@ class WebhookAdapter(BaseAdapter):
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid Discord webhook: {str(e)}")
         
-        @self.router.get("/webhook/health")
+        @self.router.get("/health")
         async def health_check():
             """Health check endpoint."""
             return {"status": "healthy", "adapter": "webhook"}
