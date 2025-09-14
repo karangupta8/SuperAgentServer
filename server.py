@@ -8,12 +8,13 @@ import os
 import logging
 from typing import Dict, Any, Optional
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from langserve import add_routes
 import uvicorn
 from dotenv import load_dotenv
+import json
+import asyncio
 
 from agent.base_agent import BaseAgent, AgentRequest, AgentResponse
 from agent.example_agent import ExampleAgent
@@ -51,7 +52,6 @@ async def lifespan(app: FastAPI):
     openai_api_key = os.getenv("OPENAI_API_KEY")
     if not openai_api_key:
         logger.warning("OPENAI_API_KEY not set, using mock agent")
-        # You could create a mock agent here for testing
         yield
         return
     
@@ -60,33 +60,16 @@ async def lifespan(app: FastAPI):
         await agent.initialize()
         
         # Create and register adapters
-        mcp_config = AdapterConfig(
-            name="mcp",
-            prefix="mcp",
-            enabled=True
-        )
-        
-        webhook_config = AdapterConfig(
-            name="webhook",
-            prefix="webhook",
-            enabled=True
-        )
+        mcp_config = AdapterConfig(name="mcp", prefix="mcp", enabled=True)
+        webhook_config = AdapterConfig(name="webhook", prefix="webhook", enabled=True)
         
         # Create adapters
-        mcp_adapter = adapter_registry.create_adapter("mcp", agent, mcp_config)
-        webhook_adapter = adapter_registry.create_adapter("webhook", agent, webhook_config)
+        adapter_registry.create_adapter("mcp", agent, mcp_config)
+        adapter_registry.create_adapter("webhook", agent, webhook_config)
         
         # Register all adapters with the app
         adapter_registry.register_all_with_app(app)
         
-        # Add LangServe routes for streaming, which creates /chat/stream
-        if agent.agent_executor:
-            logger.info("Adding LangServe streaming endpoint at /chat")
-            add_routes(
-                app,
-                agent.agent_executor,
-                path="/chat"
-            )
         logger.info("SuperAgentServer started successfully")
         logger.info(f"Available adapters: {list(adapter_registry.get_all_adapters().keys())}")
         
@@ -97,7 +80,7 @@ async def lifespan(app: FastAPI):
     # Yield control back to the application
     yield
     
-    # Shutdown (if needed)
+    # Shutdown
     logger.info("Shutting down SuperAgentServer...")
 
 
@@ -114,11 +97,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://localhost:8000",
-        # Add other origins if needed, e.g., a frontend dev server like http://localhost:3000
-    ],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -155,7 +134,7 @@ async def get_manifests():
 
 @app.post("/agent/chat")
 async def agent_chat(request: AgentRequest):
-    """Direct agent chat endpoint (bypasses adapters)."""
+    """Direct agent chat endpoint."""
     if agent is None:
         raise HTTPException(status_code=503, detail="Agent not initialized")
     
@@ -193,6 +172,104 @@ async def list_adapters():
     }
 
 
+@app.websocket("/chat/stream")
+async def websocket_chat(websocket: WebSocket):
+    """WebSocket endpoint for streaming chat with the agent."""
+    await websocket.accept()
+    logger.info("WebSocket connection established")
+    
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_text()
+            logger.info(f"Received WebSocket message: {data}")
+            
+            try:
+                # Parse the incoming data
+                message_data = json.loads(data)
+                
+                # Extract input and chat history
+                if isinstance(message_data, list) and len(message_data) > 0:
+                    # LangServe format: [{"input": {"input": "message", "chat_history": []}}]
+                    input_data = message_data[0].get("input", {})
+                    message = input_data.get("input", "")
+                    chat_history = input_data.get("chat_history", [])
+                elif isinstance(message_data, dict):
+                    # Direct format: {"input": "message", "chat_history": []}
+                    message = message_data.get("input", "")
+                    chat_history = message_data.get("chat_history", [])
+                else:
+                    # Simple string
+                    message = str(message_data)
+                    chat_history = []
+                
+                if not message:
+                    await websocket.send_text(json.dumps({
+                        "event": "error",
+                        "data": {"error": "No message provided"}
+                    }))
+                    continue
+                
+                # Create agent request
+                request = AgentRequest(
+                    message=message,
+                    session_id="websocket_session"
+                )
+                
+                # Process with agent
+                if agent is None:
+                    await websocket.send_text(json.dumps({
+                        "event": "error",
+                        "data": {"error": "Agent not initialized"}
+                    }))
+                    continue
+                
+                # Send initial response
+                await websocket.send_text(json.dumps({
+                    "event": "on_chat_model_start",
+                    "data": {"chunk": {"content": ""}}
+                }))
+                
+                # Get response from agent
+                response = await agent(request)
+                
+                # Stream the response (simulate streaming by sending chunks)
+                response_text = response.message
+                chunk_size = 10  # Send in small chunks
+                
+                for i in range(0, len(response_text), chunk_size):
+                    chunk = response_text[i:i + chunk_size]
+                    await websocket.send_text(json.dumps({
+                        "event": "on_chat_model_stream",
+                        "data": {"chunk": {"content": chunk}}
+                    }))
+                    # Small delay to simulate streaming
+                    await asyncio.sleep(0.05)
+                
+                # Send final response
+                await websocket.send_text(json.dumps({
+                    "event": "on_chat_model_end",
+                    "data": {"chunk": {"content": ""}}
+                }))
+                
+            except json.JSONDecodeError:
+                await websocket.send_text(json.dumps({
+                    "event": "error",
+                    "data": {"error": "Invalid JSON format"}
+                }))
+            except Exception as e:
+                logger.error(f"Error processing WebSocket message: {e}")
+                await websocket.send_text(json.dumps({
+                    "event": "error",
+                    "data": {"error": str(e)}
+                }))
+                
+    except WebSocketDisconnect:
+        logger.info("WebSocket connection closed")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Global exception handler."""
@@ -204,15 +281,7 @@ async def global_exception_handler(request, exc):
 
 
 def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
-    """
-    Create a FastAPI app with a custom agent.
-    
-    Args:
-        agent_instance: Custom agent instance to use
-        
-    Returns:
-        Configured FastAPI app
-    """
+    """Create a FastAPI app with a custom agent."""
     global agent
     agent = agent_instance
     
