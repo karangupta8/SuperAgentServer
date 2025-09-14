@@ -70,7 +70,7 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
                     agent_instance = ExampleAgent()
                     await agent_instance.initialize()
                 except Exception as e:
-                    logger.error(f"Failed to initialize default agent: {e}")
+                    logger.error(f"Failed to initialize default agent: {e!s}")
                     agent_instance = None  # Ensure it's None on failure
             else:
                 logger.warning(
@@ -100,8 +100,7 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
 
         if dependencies.agent:
             logger.info(
-                "SuperAgentServer started successfully with an initialized agent."
-            )
+                "SuperAgentServer started successfully with an initialized agent.")
         else:
             logger.warning("Server is starting without a functional agent.")
 
@@ -117,7 +116,7 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
     app = FastAPI(
         title="SuperAgentServer",
         description="Universal Agent Adapter Layer for LangChain agents",
-        version="0.1.0",
+        version="0.1.1",
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=create_lifespan_handler(agent_instance)
@@ -150,7 +149,7 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
     async def root():
         """Root endpoint with server information."""
         return {
-            "name": "SuperAgentServer",
+            "name": "SuperAgentServer",  # noqa: E501
             "version": "0.1.0",
             "description": "Universal Agent Adapter Layer for LangChain agents",
             "status": "running",
@@ -193,8 +192,8 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         """
         Get the manifests for all enabled adapters.
 
-        This endpoint provides a consolidated view of the capabilities and
-        connection details for each active protocol adapter.
+        This endpoint provides a consolidated view of the capabilities and connection
+        details for each active protocol adapter.
         """
         app = request.app
         generator = SchemaGenerator(app)
@@ -272,13 +271,14 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                     async for chunk in agent.agent_executor.astream(input_dict):
                         if "messages" in chunk:
                             for message_chunk in chunk["messages"]:
-                                if hasattr(message_chunk, "content"):
-                                    content = message_chunk.content
-                                    if content:
-                                        await websocket.send_text(json.dumps({
-                                            "event": "on_chat_model_stream",
-                                            "data": {"chunk": {"content": content}}
-                                        }))
+                                content = getattr(message_chunk, "content", "")
+                                if content:
+                                    await websocket.send_text(json.dumps({
+                                        "event": "on_chat_model_stream",
+                                        "data": {
+                                            "chunk": {"content": content}
+                                        }
+                                    }))
 
                     await websocket.send_text(json.dumps({
                         "event": "on_chat_model_end",
