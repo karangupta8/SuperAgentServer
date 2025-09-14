@@ -13,7 +13,7 @@ from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .base_adapter import BaseAdapter, AdapterConfig
-from agent.base_agent import AgentRequest, AgentResponse
+from ..agent.base_agent import AgentRequest, AgentResponse
 
 
 class ACPMessage(BaseModel):

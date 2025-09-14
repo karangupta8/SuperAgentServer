@@ -8,7 +8,7 @@ from fastapi.openapi.utils import get_openapi
 from fastapi import FastAPI
 from pydantic import BaseModel, create_model
 
-from agent.base_agent import BaseAgent
+from ..agent.base_agent import BaseAgent
 
 
 class SchemaGenerator:

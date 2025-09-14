@@ -57,7 +57,6 @@ def test_file_structure():
         "src/super_agent_server/adapters/schema_generator.py",
         "tests/__init__.py",
         "tests/test_server.py",
-        "tests/test_websocket.py",
         "scripts/dev_runner.py",
         "scripts/test_websocket.py",
         "config/env.example",

@@ -12,10 +12,10 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Add the current directory to Python path
-sys.path.insert(0, str(Path(__file__).parent))
+# Add the project's 'src' directory to the Python path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from server import app
+from super_agent_server.server import app
 import uvicorn
 
 
@@ -86,7 +86,7 @@ def main():
     # Run the server
     try:
         uvicorn.run(
-            "server:app",
+            "super_agent_server.server:app",
             host=host,
             port=port,
             reload=debug,
