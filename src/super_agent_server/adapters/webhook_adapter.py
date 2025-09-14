@@ -6,18 +6,19 @@ import os
 import httpx
 import logging
 from typing import Any, Dict, List, Optional
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, APIRouter, Depends
 from pydantic import BaseModel
 import json
 from dotenv import load_dotenv
+
+from ..dependencies import get_agent
 
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
 
-from ..agent.base_agent import AgentRequest, AgentResponse
-from .base_adapter import BaseAdapter, AdapterConfig
+from ..agent.base_agent import AgentRequest, AgentResponse, BaseAgent
 
 
 class WebhookRequest(BaseModel):
@@ -38,350 +39,124 @@ class WebhookResponse(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
-class WebhookAdapter(BaseAdapter):
-    """
-    Webhook adapter for external integrations.
-    
-    This adapter provides a generic webhook interface that can be used
-    with various platforms like Telegram, Slack, Discord, etc.
-    """
-    
-    def __init__(self, agent, config: AdapterConfig):
-        super().__init__(agent, config)
-        self.telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
-        self.slack_token = os.getenv("SLACK_BOT_TOKEN")
-        self.discord_token = os.getenv("DISCORD_BOT_TOKEN")
-    
-    def _setup_routes(self) -> None:
-        """Set up webhook-specific routes."""
-        
-        @self.router.post("/")
-        async def webhook_endpoint(request: WebhookRequest):
-            """Main webhook endpoint for receiving messages."""
-            return await self._process_request({
-                "message": request.message,
-                "user_id": request.user_id,
-                "session_id": request.session_id,
-                "platform": request.platform,
-                "metadata": request.metadata or {}
-            })
-        
-        @self.router.post("/telegram")
-        async def telegram_webhook(request: Request):
-            """Telegram-specific webhook endpoint."""
-            try:
-                data = await request.json()
-                logger.info(f"Received Telegram webhook: {json.dumps(data, indent=2)}")
+router = APIRouter(prefix="/webhook", tags=["Webhook Adapter"])
 
-                message_data = self._parse_telegram_message(data)
-                logger.info(f"Parsed Telegram message: {message_data}")
+telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+slack_token = os.getenv("SLACK_BOT_TOKEN")
+discord_token = os.getenv("DISCORD_BOT_TOKEN")
 
-                response = await self._process_request(message_data)
-                logger.info(f"Agent generated response: {response}")
-                
-                # Send response back to Telegram if token is configured
-                if self.telegram_token and message_data.get("user_id"):
-                    logger.info(f"Attempting to send reply to Telegram chat_id: {message_data['user_id']}")
-                    await self._send_telegram_message(
-                        chat_id=message_data["user_id"],
-                        text=response["message"]
-                    )
-                else:
-                    logger.warning("TELEGRAM_BOT_TOKEN not set or no chat_id found. Cannot send reply.")
 
-                return response
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid Telegram webhook: {str(e)}")
-        
-        @self.router.post("/slack")
-        async def slack_webhook(request: Request):
-            """Slack-specific webhook endpoint."""
-            try:
-                data = await request.json()
-                message_data = self._parse_slack_message(data)
-                response = await self._process_request(message_data)
-                
-                # Send response back to Slack if token is configured
-                if self.slack_token and message_data.get("session_id"):
-                    await self._send_slack_message(
-                        channel=message_data["session_id"],
-                        text=response["message"]
-                    )
-                
-                return response
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid Slack webhook: {str(e)}")
-        
-        @self.router.post("/discord")
-        async def discord_webhook(request: Request):
-            """Discord-specific webhook endpoint."""
-            try:
-                data = await request.json()
-                message_data = self._parse_discord_message(data)
-                response = await self._process_request(message_data)
-                
-                # Send response back to Discord if token is configured
-                if self.discord_token and message_data.get("session_id"):
-                    await self._send_discord_message(
-                        channel_id=message_data["session_id"],
-                        content=response["message"]
-                    )
-                
-                return response
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Invalid Discord webhook: {str(e)}")
-        
-        @self.router.get("/health")
-        async def health_check():
-            """Health check endpoint."""
-            return {"status": "healthy", "adapter": "webhook"}
-    
-    async def _process_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process webhook requests."""
+async def _process_request(request_data: Dict[str, Any], agent: BaseAgent) -> Dict[str, Any]:
+    """Process webhook requests."""
+    try:
+        agent_request = AgentRequest(
+            message=request_data.get("message", ""),
+            session_id=request_data.get("session_id"),
+            metadata={
+                **(request_data.get("metadata", {})),
+                "user_id": request_data.get("user_id"),
+                "platform": request_data.get("platform")
+            }
+        )
+        response = await agent.process(agent_request)
+        return {
+            "message": response.message,
+            "user_id": request_data.get("user_id"),
+            "session_id": response.session_id,
+            "platform": request_data.get("platform"),
+            "metadata": {
+                **(response.metadata or {}),
+                "tools_used": response.tools_used,
+                "timestamp": response.timestamp.isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error processing webhook request: {e}", exc_info=True)
+        return {
+            "message": f"Error processing request: {str(e)}",
+            "user_id": request_data.get("user_id"),
+            "session_id": request_data.get("session_id"),
+            "platform": request_data.get("platform"),
+            "metadata": {"error": str(e)}
+        }
+
+
+def _parse_telegram_message(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse Telegram webhook message."""
+    message = data.get("message", {})
+    text = message.get("text", "")
+    user_id = str(message.get("from", {}).get("id", ""))
+    chat_id = str(message.get("chat", {}).get("id", ""))
+    return {
+        "message": text, "user_id": chat_id, "session_id": chat_id, "platform": "telegram",
+        "metadata": {
+            "message_id": message.get("message_id"), "chat_type": message.get("chat", {}).get("type"),
+            "username": message.get("from", {}).get("username"), "user_id": user_id
+        }
+    }
+
+
+async def _send_telegram_message(chat_id: str, text: str) -> None:
+    """Send message back to Telegram."""
+    if not telegram_token:
+        logger.warning("Cannot send Telegram message: TELEGRAM_BOT_TOKEN is not configured.")
+        return
+    url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+    async with httpx.AsyncClient() as client:
         try:
-            # Convert to agent request
-            agent_request = AgentRequest(
-                message=request_data.get("message", ""),
-                session_id=request_data.get("session_id"),
-                metadata={
-                    **(request_data.get("metadata", {})),
-                    "user_id": request_data.get("user_id"),
-                    "platform": request_data.get("platform")
-                }
-            )
-            
-            # Process with agent
-            response = await self.agent(agent_request)
-            
-            # Convert to webhook response
-            return {
-                "message": response.message,
-                "user_id": request_data.get("user_id"),
-                "session_id": response.session_id,
-                "platform": request_data.get("platform"),
-                "metadata": {
-                    **(response.metadata or {}),
-                    "tools_used": response.tools_used,
-                    "timestamp": response.timestamp.isoformat()
-                }
-            }
-        
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            logger.info(f"Successfully sent message to Telegram chat_id: {chat_id}")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to send Telegram message to chat_id {chat_id}. Status: {e.response.status_code}, Response: {e.response.text}")
         except Exception as e:
-            return {
-                "message": f"Error processing request: {str(e)}",
-                "user_id": request_data.get("user_id"),
-                "session_id": request_data.get("session_id"),
-                "platform": request_data.get("platform"),
-                "metadata": {"error": str(e)}
-            }
-    
-    def _parse_telegram_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse Telegram webhook message."""
-        message = data.get("message", {})
-        text = message.get("text", "")
-        user_id = str(message.get("from", {}).get("id", ""))
-        chat_id = str(message.get("chat", {}).get("id", ""))
-        
-        return {
-            "message": text,
-            "user_id": chat_id,  # Use chat_id for sending responses
-            "session_id": chat_id,
-            "platform": "telegram",
-            "metadata": {
-                "message_id": message.get("message_id"),
-                "chat_type": message.get("chat", {}).get("type"),
-                "username": message.get("from", {}).get("username"),
-                "user_id": user_id  # Keep original user_id in metadata
-            }
-        }
-    
-    def _parse_slack_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse Slack webhook message."""
-        text = data.get("text", "")
-        user_id = data.get("user", "")
-        channel = data.get("channel", "")
-        
-        return {
-            "message": text,
-            "user_id": user_id,
-            "session_id": channel,
-            "platform": "slack",
-            "metadata": {
-                "team": data.get("team"),
-                "channel_name": data.get("channel_name"),
-                "timestamp": data.get("ts")
-            }
-        }
-    
-    def _parse_discord_message(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Parse Discord webhook message."""
-        content = data.get("content", "")
-        author = data.get("author", {})
-        channel_id = data.get("channel_id", "")
-        
-        return {
-            "message": content,
-            "user_id": str(author.get("id", "")),
-            "session_id": channel_id,
-            "platform": "discord",
-            "metadata": {
-                "username": author.get("username"),
-                "guild_id": data.get("guild_id"),
-                "message_id": data.get("id")
-            }
-        }
-    
-    async def _send_telegram_message(self, chat_id: str, text: str) -> None:
-        """Send message back to Telegram."""
-        if not self.telegram_token:
-            logger.warning("Cannot send Telegram message: TELEGRAM_BOT_TOKEN is not configured.")
-            return
-        
-        url = f"https://api.telegram.org/bot{self.telegram_token}/sendMessage"
-        payload = {
-            "chat_id": chat_id,
-            "text": text,
-            "parse_mode": "Markdown"
-        }
-        
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(url, json=payload)
-                response.raise_for_status()
-                logger.info(f"Successfully sent message to Telegram chat_id: {chat_id}")
-            except httpx.HTTPStatusError as e:
-                logger.error(f"Failed to send Telegram message to chat_id {chat_id}. Status: {e.response.status_code}, Response: {e.response.text}")
-            except Exception as e:
-                logger.error(f"An unexpected error occurred while sending Telegram message: {e}", exc_info=True)
-    
-    async def _send_slack_message(self, channel: str, text: str) -> None:
-        """Send message back to Slack."""
-        if not self.slack_token:
-            return
-        
-        url = "https://slack.com/api/chat.postMessage"
-        headers = {
-            "Authorization": f"Bearer {self.slack_token}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "channel": channel,
-            "text": text
-        }
-        
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-            except Exception as e:
-                print(f"Failed to send Slack message: {e}")
-    
-    async def _send_discord_message(self, channel_id: str, content: str) -> None:
-        """Send message back to Discord."""
-        if not self.discord_token:
-            return
-        
-        url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
-        headers = {
-            "Authorization": f"Bot {self.discord_token}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "content": content
-        }
-        
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-            except Exception as e:
-                print(f"Failed to send Discord message: {e}")
-    
-    def get_manifest(self) -> Dict[str, Any]:
-        """Get the webhook adapter manifest."""
-        schema = self.agent.get_schema()
-        
-        return {
-            "name": f"{self.agent.name}-webhook",
-            "version": "0.1.0",
-            "description": f"Webhook adapter for {self.agent.name} agent",
-            "endpoints": {
-                "webhook": {
-                    "method": "POST",
-                    "path": f"/{self.config.prefix}/webhook",
-                    "description": "Generic webhook endpoint"
-                },
-                "telegram": {
-                    "method": "POST",
-                    "path": f"/{self.config.prefix}/webhook/telegram",
-                    "description": "Telegram webhook endpoint"
-                },
-                "slack": {
-                    "method": "POST",
-                    "path": f"/{self.config.prefix}/webhook/slack",
-                    "description": "Slack webhook endpoint"
-                },
-                "discord": {
-                    "method": "POST",
-                    "path": f"/{self.config.prefix}/webhook/discord",
-                    "description": "Discord webhook endpoint"
-                },
-                "health": {
-                    "method": "GET",
-                    "path": f"/{self.config.prefix}/webhook/health",
-                    "description": "Health check endpoint"
-                }
-            },
-            "request_schema": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "The message to send to the agent"
-                    },
-                    "user_id": {
-                        "type": "string",
-                        "description": "User identifier"
-                    },
-                    "session_id": {
-                        "type": "string",
-                        "description": "Session identifier"
-                    },
-                    "platform": {
-                        "type": "string",
-                        "description": "Platform identifier"
-                    },
-                    "metadata": {
-                        "type": "object",
-                        "description": "Additional metadata"
-                    }
-                },
-                "required": ["message"]
-            },
-            "response_schema": {
-                "type": "object",
-                "properties": {
-                    "message": {
-                        "type": "string",
-                        "description": "The agent's response"
-                    },
-                    "user_id": {
-                        "type": "string",
-                        "description": "User identifier"
-                    },
-                    "session_id": {
-                        "type": "string",
-                        "description": "Session identifier"
-                    },
-                    "platform": {
-                        "type": "string",
-                        "description": "Platform identifier"
-                    },
-                    "metadata": {
-                        "type": "object",
-                        "description": "Response metadata"
-                    }
-                },
-                "required": ["message"]
-            }
-        }
+            logger.error(f"An unexpected error occurred while sending Telegram message: {e}", exc_info=True)
+
+
+@router.post("/")
+async def webhook_endpoint(request: WebhookRequest, agent: BaseAgent = Depends(get_agent)):
+    """Main webhook endpoint for receiving messages."""
+    return await _process_request({
+        "message": request.message, "user_id": request.user_id, "session_id": request.session_id,
+        "platform": request.platform, "metadata": request.metadata or {}
+    }, agent)
+
+
+@router.post("/telegram")
+async def telegram_webhook(request: Request, agent: BaseAgent = Depends(get_agent)):
+    """Telegram-specific webhook endpoint."""
+    try:
+        data = await request.json()
+        logger.info(f"Received Telegram webhook: {json.dumps(data, indent=2)}")
+        message_data = _parse_telegram_message(data)
+        logger.info(f"Parsed Telegram message: {message_data}")
+        response = await _process_request(message_data, agent)
+        logger.info(f"Agent generated response: {response}")
+        if telegram_token and message_data.get("user_id"):
+            logger.info(f"Attempting to send reply to Telegram chat_id: {message_data['user_id']}")
+            await _send_telegram_message(chat_id=message_data["user_id"], text=response["message"])
+        else:
+            logger.warning("TELEGRAM_BOT_TOKEN not set or no chat_id found. Cannot send reply.")
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid Telegram webhook: {str(e)}")
+
+
+# Placeholder routes for Slack and Discord for completeness
+@router.post("/slack")
+async def slack_webhook(request: Request, agent: BaseAgent = Depends(get_agent)):
+    """Slack-specific webhook endpoint."""
+    raise HTTPException(status_code=501, detail="Slack adapter not fully implemented.")
+
+
+@router.post("/discord")
+async def discord_webhook(request: Request, agent: BaseAgent = Depends(get_agent)):
+    """Discord-specific webhook endpoint."""
+    raise HTTPException(status_code=501, detail="Discord adapter not fully implemented.")
+
+
+@router.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "adapter": "webhook"}

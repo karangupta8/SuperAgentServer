@@ -114,10 +114,13 @@ curl -X POST "http://localhost:8000/mcp/tools/list"
 curl -X POST "http://localhost:8000/mcp/tools/call" \
      -H "Content-Type: application/json" \
      -d '{
-       "name": "agent_chat",
-       "arguments": {
-         "message": "Hello from MCP!",
-         "session_id": "mcp-session"
+       "method": "tools/call",
+       "params": {
+         "name": "chat",
+         "arguments": {
+           "message": "Hello from MCP!",
+           "session_id": "mcp-session"
+         }
        }
      }'
 ```
@@ -213,14 +216,12 @@ app = create_app(MyCustomAgent())
 
 ### ✅ Implemented
 
-- **🌐 REST API** - Direct HTTP access via LangServe
+- **🌐 REST API** - Direct HTTP access
 - **🔌 MCP** - Model Context Protocol integration
 - **🔗 Webhooks** - Generic webhook for external platforms
-
-### 🚧 Coming Soon
-
 - **🤖 A2A** - Agent-to-Agent communication protocol
 - **📡 ACP** - Agent Communication Protocol
+- **🌐 WebSocket** - Real-time streaming chat
 
 
 ## 🔧 Configuration

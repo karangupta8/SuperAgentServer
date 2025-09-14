@@ -85,7 +85,6 @@ def main():
     print("  - POST /webhook/telegram - Telegram webhook")
     print("  - POST /webhook/slack - Slack webhook")
     print("  - POST /webhook/discord - Discord webhook")
-    print("  - GET  /manifests - All adapter manifests")
     print()
     print("Press Ctrl+C to stop the server")
     print("=" * 50)

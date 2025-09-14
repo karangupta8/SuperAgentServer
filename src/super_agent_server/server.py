@@ -21,10 +21,9 @@ from pydantic import BaseModel, ValidationError
 from .agent.base_agent import BaseAgent, AgentRequest, AgentResponse
 from .agent.example_agent import ExampleAgent
 from .adapters.base_adapter import AdapterRegistry, AdapterConfig
-from .adapters.mcp_adapter import MCPAdapter
-from .adapters.webhook_adapter import WebhookAdapter
-from .adapters.a2a_adapter import A2AAdapter
-from .adapters.acp_adapter import ACPAdapter
+from . import dependencies
+from .config import settings
+
 
 # --- Pydantic Models for WebSocket ---
 class WebSocketInput(BaseModel):
@@ -46,29 +45,12 @@ logger = logging.getLogger(__name__)
 # Global registry
 adapter_registry = AdapterRegistry()
 
-# Register adapter types
-adapter_registry.register_adapter_type("mcp", MCPAdapter)
-adapter_registry.register_adapter_type("webhook", WebhookAdapter)
-adapter_registry.register_adapter_type("a2a", A2AAdapter)
-adapter_registry.register_adapter_type("acp", ACPAdapter)
-
-# Global agent instance
-agent: Optional[BaseAgent] = None
-
-async def get_agent() -> BaseAgent:
-    """Dependency to get the initialized agent instance."""
-    if agent is None:
-        raise HTTPException(status_code=503, detail="Agent not initialized. Check server logs for details.")
-    return agent
-
 def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
     """Factory to create a lifespan handler, optionally with a pre-configured agent."""
-    global agent
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Manage application lifespan events."""
         nonlocal agent_instance
-        global agent
 
         logger.info("Starting SuperAgentServer...")
 
@@ -86,28 +68,33 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
             else:
                 logger.warning("OPENAI_API_KEY not set. Agent initialization will be skipped.")
         
-        agent = agent_instance
+        dependencies.agent = agent_instance
 
-        if agent:
-            try:
-                # Create and register adapters
-                mcp_config = AdapterConfig(name="mcp", prefix="mcp", enabled=True)
-                webhook_config = AdapterConfig(name="webhook", prefix="webhook", enabled=True)
-                a2a_config = AdapterConfig(name="a2a", prefix="a2a", enabled=True)
-                acp_config = AdapterConfig(name="acp", prefix="acp", enabled=True)
-                
-                adapter_registry.create_adapter("mcp", agent, mcp_config)
-                adapter_registry.create_adapter("webhook", agent, webhook_config)
-                adapter_registry.create_adapter("a2a", agent, a2a_config)
-                adapter_registry.create_adapter("acp", agent, acp_config)
-                
-                adapter_registry.register_all_with_app(app)
-                
-                logger.info("SuperAgentServer started successfully with an initialized agent.")
-                logger.info(f"Available adapters: {list(adapter_registry.get_all_adapters().keys())}")
-            except Exception as e:
-                logger.error(f"Failed to configure adapters: {e}")
-                # Don't re-raise, allow server to start in a degraded state
+        # Always register adapters. The `get_agent` dependency will handle
+        # whether the agent is available at request time, returning a 503 if not.
+        # This makes server behavior consistent and avoids startup race conditions.
+        try:
+            if settings.MCP_ENABLED:
+                from .adapters.mcp_adapter import router as mcp_router
+                app.include_router(mcp_router)
+                logger.info("MCP adapter enabled.")
+            if settings.WEBHOOK_ENABLED:
+                from .adapters.webhook_adapter import router as webhook_router
+                app.include_router(webhook_router)
+                logger.info("Webhook adapter enabled.")
+            if settings.A2A_ENABLED:
+                from .adapters.a2a_adapter import router as a2a_router
+                app.include_router(a2a_router)
+                logger.info("A2A adapter enabled.")
+            if settings.ACP_ENABLED:
+                from .adapters.acp_adapter import router as acp_router
+                app.include_router(acp_router)
+                logger.info("ACP adapter enabled.")
+        except Exception as e:
+            logger.error(f"Failed to configure adapters: {e}")
+
+        if dependencies.agent:
+            logger.info("SuperAgentServer started successfully with an initialized agent.")
         else:
             logger.warning("Server is starting without a functional agent.")
 
@@ -152,7 +139,7 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
             "version": "0.1.0",
             "description": "Universal Agent Adapter Layer for LangChain agents",
             "status": "running",
-            "adapters": list(adapter_registry.get_all_adapters().keys())
+            "docs": "/docs"
         }
 
     @app.get("/health")
@@ -160,17 +147,11 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         """Health check endpoint."""
         return {
             "status": "healthy",
-            "agent_initialized": agent is not None,
-            "adapters": len(adapter_registry.get_all_adapters())
+            "agent_initialized": dependencies.agent is not None,
         }
 
-    @app.get("/manifests")
-    async def get_manifests():
-        """Get manifests for all adapters."""
-        return adapter_registry.get_manifests()
-
     @app.post("/agent/chat")
-    async def agent_chat(request: AgentRequest, agent: BaseAgent = Depends(get_agent)):
+    async def agent_chat(request: AgentRequest, agent: BaseAgent = Depends(dependencies.get_agent)):
         """Direct agent chat endpoint."""
         try:
             response = await agent(request)
@@ -180,25 +161,35 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
             raise HTTPException(status_code=500, detail=str(e))
 
     @app.get("/agent/schema")
-    async def get_agent_schema(agent: BaseAgent = Depends(get_agent)):
+    async def get_agent_schema(agent: BaseAgent = Depends(dependencies.get_agent)):
         """Get the agent's schema."""
         return agent.get_schema()
 
-    @app.get("/adapters")
-    async def list_adapters():
-        """List all available adapters."""
-        adapters = adapter_registry.get_all_adapters()
-        return {
-            "adapters": [
-                {
-                    "name": name,
-                    "type": adapter.__class__.__name__,
-                    "config": adapter.config.dict(),
-                    "manifest": adapter.get_manifest()
-                }
-                for name, adapter in adapters.items()
-            ]
+    @app.get("/manifests", tags=["Adapters"])
+    async def get_all_manifests(agent: BaseAgent = Depends(dependencies.get_agent)):
+        """
+        Get the manifests for all enabled adapters.
+
+        This endpoint provides a consolidated view of the capabilities and
+        connection details for each active protocol adapter.
+        """
+        manifests = {}
+        adapter_modules = {
+            "mcp": "mcp_adapter",
+            "webhook": "webhook_adapter",
+            "a2a": "a2a_adapter",
+            "acp": "acp_adapter",
         }
+
+        for name, module_name in adapter_modules.items():
+            if getattr(settings, f"{name.upper()}_ENABLED", False):
+                try:
+                    adapter_module = __import__(f"super_agent_server.adapters.{module_name}", fromlist=["get_manifest"])
+                    manifests[name] = await adapter_module.get_manifest(agent)
+                except (ImportError, AttributeError) as e:
+                    logger.warning(f"Could not load manifest for '{name}' adapter: {e}")
+
+        return manifests
 
     @app.websocket("/chat/stream")
     async def websocket_chat(websocket: WebSocket):
@@ -206,7 +197,7 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         await websocket.accept()
         logger.info("WebSocket connection established")
 
-        # Check for agent availability once upon connection
+        agent = dependencies.agent # Get the agent from the dependencies module
         if agent is None:
             logger.warning("WebSocket connection rejected: Agent not initialized.")
             await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Agent not initialized. Server is in a degraded state."}}))

@@ -51,7 +51,7 @@ python -m super_agent_server.server
      "version": "0.1.0",
      "description": "Universal Agent Adapter Layer for LangChain agents",
      "status": "running",
-     "adapters": ["mcp", "webhook", "a2a", "acp"]
+     "docs": "/docs"
    }
    ```
 
@@ -64,8 +64,7 @@ python -m super_agent_server.server
    ```json
    {
      "status": "healthy",
-     "agent_initialized": true,
-     "adapters": 4
+     "agent_initialized": true
    }
    ```
 
@@ -99,7 +98,7 @@ curl -X POST "http://localhost:8000/mcp/tools/call" \
      -d '{
        "method": "tools/call",
        "params": {
-         "name": "agent_chat",
+         "name": "chat",
          "arguments": {"message": "Hello from MCP!"}
        }
      }'
@@ -115,6 +114,29 @@ curl -X POST "http://localhost:8000/webhook/webhook" \
        "user_id": "test-user",
        "platform": "test"
      }'
+```
+
+### Test via A2A
+
+```bash
+curl -X POST "http://localhost:8000/a2a/message" \
+-H "Content-Type: application/json" \
+-d '{
+  "sender_agent_id": "test-sender-agent",
+  "message": "Hello from another agent!",
+  "session_id": "a2a-session-123"
+}'
+```
+### Test via ACP
+
+```bash
+curl -X POST "http://localhost:8000/acp/message" \
+-H "Content-Type: application/json" \
+-d '{
+  "sender_agent_id": "test-acp-sender",
+  "message": "Hello from an ACP client!",
+  "session_id": "acp-session-456"
+}'
 ```
 
 ## Step 5: Explore the API
@@ -150,6 +172,7 @@ async def test_websocket():
 # Run the test
 asyncio.run(test_websocket())
 ```
+
 
 ## What's Next?
 

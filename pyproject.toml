@@ -30,6 +30,7 @@ dependencies = [
     "langserve>=0.0.40",
     "sse-starlette>=1.8.1", # Required by LangServe for streaming endpoints
     "pydantic>=2.5.0",
+    "pydantic-settings>=2.0.0",
     "python-multipart>=0.0.6",
     "httpx>=0.25.2",
     "websockets>=12.0",

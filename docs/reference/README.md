@@ -133,8 +133,10 @@ async def get_agent() -> BaseAgent:
 ### Configuration Classes
 
 #### Settings
-
 ```python
+from pydantic_settings import BaseSettings
+from pydantic import Field
+
 class Settings(BaseSettings):
     """Application settings."""
     
@@ -153,8 +155,6 @@ class Settings(BaseSettings):
 |--------|----------|-------------|
 | `GET` | `/` | Server information |
 | `GET` | `/health` | Health check |
-| `GET` | `/manifests` | All adapter manifests |
-| `GET` | `/adapters` | List all adapters |
 
 ### Agent Endpoints
 
@@ -177,7 +177,7 @@ class Settings(BaseSettings):
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/webhook/webhook` | Generic webhook |
+| `POST` | `/webhook/` | Generic webhook |
 | `POST` | `/webhook/telegram` | Telegram webhook |
 | `POST` | `/webhook/slack` | Slack webhook |
 | `POST` | `/webhook/discord` | Discord webhook |
@@ -404,9 +404,6 @@ curl http://localhost:8000/health
 # Detailed status
 curl http://localhost:8000/
 
-# Adapter status
-curl http://localhost:8000/adapters
-```
 
 ### Metrics
 

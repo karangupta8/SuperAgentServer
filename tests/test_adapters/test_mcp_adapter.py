@@ -1,41 +1,35 @@
 """
-Adapter-specific tests.
+Adapter-specific tests for MCP.
 """
 
 import pytest
-from unittest.mock import Mock, patch
-from super_agent_server.adapters.mcp_adapter import MCPAdapter
-from super_agent_server.agent.base_agent import AgentRequest, AgentResponse
 
 
-class TestMCPAdapter:
-    """Test cases for MCP adapter."""
-    
-    def test_mcp_adapter_initialization(self):
-        """Test MCP adapter initializes correctly."""
-        adapter = MCPAdapter(Mock(), Mock())
-        assert adapter is not None
-    
-    def test_mcp_tools_list(self, client):
-        """Test MCP tools list endpoint."""
-        response = client.post("/mcp/tools/list")
-        assert response.status_code == 200
-        data = response.json()
-        assert "result" in data
-        assert "tools" in data["result"]
-    
-    def test_mcp_tool_call(self, client, sample_agent_request):
-        """Test MCP tool call endpoint."""
-        response = client.post(
-            "/mcp/tools/call",
-            json={
-                "method": "tools/call",
-                "params": {
-                    "name": "chat",
-                    "arguments": sample_agent_request
-                }
+def test_mcp_tools_list(client):
+    """Test MCP tools list endpoint."""
+    response = client.post("/mcp/tools/list")
+    assert response.status_code == 200
+    data = response.json()
+    assert "result" in data
+    assert "tools" in data["result"]
+    assert len(data["result"]["tools"]) > 0
+    assert data["result"]["tools"][0]["name"] == "chat"
+
+
+def test_mcp_tool_call(client):
+    """Test MCP tool call endpoint."""
+    response = client.post(
+        "/mcp/tools/call",
+        json={
+            "method": "tools/call",
+            "params": {
+                "name": "chat",
+                "arguments": {"message": "Hello from MCP test", "session_id": "mcp-test-session-123"},
             }
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert "result" in data
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "result" in data
+    assert "content" in data["result"]
+    assert data["result"]["content"][0]["text"] is not None

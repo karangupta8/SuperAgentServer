@@ -197,9 +197,6 @@ curl http://localhost:8000/health
 # Detailed status
 curl http://localhost:8000/
 
-# Adapter status
-curl http://localhost:8000/adapters
-```
 
 ## Getting Help
 
