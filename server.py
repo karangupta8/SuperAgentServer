@@ -7,7 +7,7 @@ Main FastAPI server that exposes LangChain agents across multiple protocols.
 import os   
 import logging
 from typing import Dict, Any, Optional
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,12 +15,23 @@ import uvicorn
 from dotenv import load_dotenv, find_dotenv
 import json
 import asyncio
+from pydantic import BaseModel, ValidationError
 
 from agent.base_agent import BaseAgent, AgentRequest, AgentResponse
 from agent.example_agent import ExampleAgent
 from adapters.base_adapter import AdapterRegistry, AdapterConfig
 from adapters.mcp_adapter import MCPAdapter
 from adapters.webhook_adapter import WebhookAdapter
+
+# --- Pydantic Models for WebSocket ---
+class WebSocketInput(BaseModel):
+    input: str
+    chat_history: list = []
+
+class WebSocketMessage(BaseModel):
+    input: WebSocketInput
+
+# --- End Pydantic Models ---
 
 # Load environment variables from .env file if it exists
 load_dotenv(find_dotenv())
@@ -191,28 +202,28 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                 data = await websocket.receive_text()
                 logger.info(f"Received WebSocket message: {data}")
                 
+                message = ""
+                chat_history = []
+
                 try:
-                    message_data = json.loads(data)
-                    
-                    if isinstance(message_data, list) and len(message_data) > 0:
-                        input_data = message_data[0].get("input", {})
-                        message = input_data.get("input", "")
-                        chat_history = input_data.get("chat_history", [])
-                    elif isinstance(message_data, dict):
-                        message = message_data.get("input", "")
-                        chat_history = message_data.get("chat_history", [])
+                    # LangServe's client sends a list of one item
+                    raw_data = json.loads(data)
+                    if isinstance(raw_data, list) and len(raw_data) > 0:
+                        message_data = WebSocketMessage.model_validate(raw_data[0])
+                        message = message_data.input.input
+                        chat_history = message_data.input.chat_history
                     else:
-                        message = str(message_data)
-                        chat_history = []
-                    
-                    if not message:
-                        await websocket.send_text(json.dumps({"event": "error", "data": {"error": "No message provided"}}))
-                        continue
+                        # Handle other potential formats if necessary, or raise error
+                        raise ValueError("Invalid message format. Expected a list with one object.")
                     
                     if agent is None:
                         await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Agent not initialized"}}))
                         continue
                     
+                    if not message:
+                        await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Input message cannot be empty."}}))
+                        continue
+
                     await websocket.send_text(json.dumps({"event": "on_chat_model_start", "data": {"chunk": {"content": ""}}}))
                     
                     input_dict = {"input": message, "chat_history": chat_history}
@@ -227,6 +238,9 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                     
                     await websocket.send_text(json.dumps({"event": "on_chat_model_end", "data": {}}))
                     
+                except (ValidationError, ValueError) as e:
+                    logger.warning(f"Invalid WebSocket message format: {e}")
+                    await websocket.send_text(json.dumps({"event": "error", "data": {"error": f"Invalid message format: {e}"}}))
                 except json.JSONDecodeError:
                     await websocket.send_text(json.dumps({"event": "error", "data": {"error": "Invalid JSON format"}}))
                 except Exception as e:
@@ -236,7 +250,9 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
         except WebSocketDisconnect:
             logger.info("WebSocket connection closed")
         except Exception as e:
-            logger.error(f"WebSocket error: {e}")
+            # Suppress noisy errors on client disconnect
+            with suppress(ConnectionResetError):
+                logger.error(f"WebSocket error: {e}")
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):

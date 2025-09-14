@@ -1,6 +1,7 @@
 """
 Automated tests for SuperAgentServer using pytest and TestClient.
 """
+import asyncio
 import os
 import pytest
 from fastapi.testclient import TestClient
@@ -120,33 +121,36 @@ def test_webhook_generic(client: TestClient):
 
 
 @pytest.mark.skipif(AGENT_NOT_INITIALIZED, reason="OPENAI_API_KEY not set, agent not initialized")
-def test_websocket_chat_stream(client: TestClient):
+@pytest.mark.asyncio
+async def test_websocket_chat_stream(client: TestClient):
     """Test the WebSocket streaming endpoint for a successful stream."""
     try:
         with client.websocket_connect("/chat/stream") as websocket:
             # Send a message in LangServe format
-            input_data = {
-                "input": {"input": "Hello, stream!", "chat_history": []}
-            }
+            input_data = {"input": {"input": "Hello, stream!", "chat_history": []}}
             websocket.send_json([input_data])
 
             # Receive and validate events
             start_event_received = False
             stream_content = ""
             end_event_received = False
+            
+            # Use an explicit timeout to prevent tests from hanging
+            timeout = 10  # seconds
+            
+            while not end_event_received:
+                try:
+                    data = await asyncio.wait_for(websocket.receive_json(), timeout=timeout)
+                    event_type = data.get("event")
 
-            # The test client's receive_json has a default timeout
-            while True:
-                data = websocket.receive_json()
-                event_type = data.get("event")
-
-                if event_type == "on_chat_model_start":
-                    start_event_received = True
-                elif event_type == "on_chat_model_stream":
-                    stream_content += data.get("data", {}).get("chunk", {}).get("content", "")
-                elif event_type == "on_chat_model_end":
-                    end_event_received = True
-                    break  # End of stream
+                    if event_type == "on_chat_model_start":
+                        start_event_received = True
+                    elif event_type == "on_chat_model_stream":
+                        stream_content += data.get("data", {}).get("chunk", {}).get("content", "")
+                    elif event_type == "on_chat_model_end":
+                        end_event_received = True
+                except asyncio.TimeoutError:
+                    pytest.fail(f"WebSocket test timed out after {timeout} seconds waiting for message.")
 
             assert start_event_received, "Did not receive the 'on_chat_model_start' event"
             assert len(stream_content) > 0, "Streamed content was empty"
