@@ -15,8 +15,8 @@ SuperAgentServer is a **single package/framework** that takes any **LangChain ag
 - 🌐 **REST APIs** (via LangServe)
 - 🔌 **MCP** (Model Context Protocol)
 - 🔗 **Webhooks** (Telegram, Slack, Discord, etc.)
-- 🤖 **A2A** (Agent-to-Agent) - *Coming Soon*
-- 📡 **ACP** (Agent Communication Protocol) - *Coming Soon*
+- 🤖 **A2A** (Agent-to-Agent)
+- 📡 **ACP** (Agent Communication Protocol)
 
 ## ✨ Key Features
 

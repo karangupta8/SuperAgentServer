@@ -22,6 +22,8 @@ from agent.example_agent import ExampleAgent
 from adapters.base_adapter import AdapterRegistry, AdapterConfig
 from adapters.mcp_adapter import MCPAdapter
 from adapters.webhook_adapter import WebhookAdapter
+from adapters.a2a_adapter import A2AAdapter
+from adapters.acp_adapter import ACPAdapter
 
 # --- Pydantic Models for WebSocket ---
 class WebSocketInput(BaseModel):
@@ -46,6 +48,8 @@ adapter_registry = AdapterRegistry()
 # Register adapter types
 adapter_registry.register_adapter_type("mcp", MCPAdapter)
 adapter_registry.register_adapter_type("webhook", WebhookAdapter)
+adapter_registry.register_adapter_type("a2a", A2AAdapter)
+adapter_registry.register_adapter_type("acp", ACPAdapter)
 
 # Global agent instance
 agent: Optional[BaseAgent] = None
@@ -88,9 +92,13 @@ def create_lifespan_handler(agent_instance: Optional[BaseAgent] = None):
                 # Create and register adapters
                 mcp_config = AdapterConfig(name="mcp", prefix="mcp", enabled=True)
                 webhook_config = AdapterConfig(name="webhook", prefix="webhook", enabled=True)
+                a2a_config = AdapterConfig(name="a2a", prefix="a2a", enabled=True)
+                acp_config = AdapterConfig(name="acp", prefix="acp", enabled=True)
                 
                 adapter_registry.create_adapter("mcp", agent, mcp_config)
                 adapter_registry.create_adapter("webhook", agent, webhook_config)
+                adapter_registry.create_adapter("a2a", agent, a2a_config)
+                adapter_registry.create_adapter("acp", agent, acp_config)
                 
                 adapter_registry.register_all_with_app(app)
                 
