@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+from ..agent.base_agent import AgentRequest, AgentResponse
 from .base_adapter import BaseAdapter, AdapterConfig
-from agent.base_agent import AgentRequest, AgentResponse
 
 
 class WebhookRequest(BaseModel):

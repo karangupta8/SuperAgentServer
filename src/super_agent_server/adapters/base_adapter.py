@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Type
 from fastapi import FastAPI, APIRouter
 from pydantic import BaseModel
 
-from agent.base_agent import BaseAgent, AgentRequest, AgentResponse
+from ..agent.base_agent import BaseAgent, AgentRequest, AgentResponse
 
 
 class AdapterConfig(BaseModel):

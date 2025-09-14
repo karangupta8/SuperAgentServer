@@ -12,8 +12,8 @@ from datetime import datetime
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ..agent.base_agent import AgentRequest, AgentResponse
 from .base_adapter import BaseAdapter, AdapterConfig
-from agent.base_agent import AgentRequest, AgentResponse
 
 
 class A2AMessage(BaseModel):

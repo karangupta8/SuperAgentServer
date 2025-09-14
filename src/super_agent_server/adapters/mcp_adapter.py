@@ -2,12 +2,13 @@
 MCP (Model Context Protocol) adapter for exposing agents.
 """
 
+import json
 from typing import Any, Dict, List, Optional
-from fastapi import HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from ..agent.base_agent import AgentRequest, AgentResponse
 from .base_adapter import BaseAdapter, AdapterConfig
-from agent.base_agent import AgentRequest, AgentResponse
 
 
 class MCPRequest(BaseModel):

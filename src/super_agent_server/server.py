@@ -1,3 +1,4 @@
+# src/super_agent_server/server.py
 """
 SuperAgentServer - Universal Agent Adapter Layer
 
@@ -17,13 +18,13 @@ import json
 import asyncio
 from pydantic import BaseModel, ValidationError
 
-from agent.base_agent import BaseAgent, AgentRequest, AgentResponse
-from agent.example_agent import ExampleAgent
-from adapters.base_adapter import AdapterRegistry, AdapterConfig
-from adapters.mcp_adapter import MCPAdapter
-from adapters.webhook_adapter import WebhookAdapter
-from adapters.a2a_adapter import A2AAdapter
-from adapters.acp_adapter import ACPAdapter
+from .agent.base_agent import BaseAgent, AgentRequest, AgentResponse
+from .agent.example_agent import ExampleAgent
+from .adapters.base_adapter import AdapterRegistry, AdapterConfig
+from .adapters.mcp_adapter import MCPAdapter
+from .adapters.webhook_adapter import WebhookAdapter
+from .adapters.a2a_adapter import A2AAdapter
+from .adapters.acp_adapter import ACPAdapter
 
 # --- Pydantic Models for WebSocket ---
 class WebSocketInput(BaseModel):
