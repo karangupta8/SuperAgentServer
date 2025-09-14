@@ -210,12 +210,6 @@ async def websocket_chat(websocket: WebSocket):
                     }))
                     continue
                 
-                # Create agent request
-                request = AgentRequest(
-                    message=message,
-                    session_id="websocket_session"
-                )
-                
                 # Process with agent
                 if agent is None:
                     await websocket.send_text(json.dumps({
@@ -230,21 +224,56 @@ async def websocket_chat(websocket: WebSocket):
                     "data": {"chunk": {"content": ""}}
                 }))
                 
-                # Get response from agent
-                response = await agent(request)
+                # TRUE STREAMING: Use the agent's native streaming capabilities
+                try:
+                    # Check if the agent has streaming capabilities
+                    if hasattr(agent, 'agent_executor') and hasattr(agent.agent_executor, 'astream'):
+                        # Use LangChain's native streaming
+                        async for chunk in agent.agent_executor.astream({
+                            "input": message,
+                            "chat_history": chat_history
+                        }):
+                            # Extract content from the chunk
+                            if 'output' in chunk:
+                                content = chunk['output']
+                                await websocket.send_text(json.dumps({
+                                    "event": "on_chat_model_stream",
+                                    "data": {"chunk": {"content": content}}
+                                }))
+                    else:
+                        # Fallback to regular processing if streaming not available
+                        request = AgentRequest(
+                            message=message,
+                            session_id="websocket_session"
+                        )
+                        response = await agent(request)
+                        
+                        # Stream the response in chunks
+                        response_text = response.message
+                        chunk_size = 10
+                        
+                        for i in range(0, len(response_text), chunk_size):
+                            chunk = response_text[i:i + chunk_size]
+                            await websocket.send_text(json.dumps({
+                                "event": "on_chat_model_stream",
+                                "data": {"chunk": {"content": chunk}}
+                            }))
+                            await asyncio.sleep(0.05)  # Small delay for streaming effect
                 
-                # Stream the response (simulate streaming by sending chunks)
-                response_text = response.message
-                chunk_size = 10  # Send in small chunks
-                
-                for i in range(0, len(response_text), chunk_size):
-                    chunk = response_text[i:i + chunk_size]
+                except Exception as stream_error:
+                    logger.error(f"Error in streaming: {stream_error}")
+                    # Fallback to regular processing
+                    request = AgentRequest(
+                        message=message,
+                        session_id="websocket_session"
+                    )
+                    response = await agent(request)
+                    
+                    # Send the complete response
                     await websocket.send_text(json.dumps({
                         "event": "on_chat_model_stream",
-                        "data": {"chunk": {"content": chunk}}
+                        "data": {"chunk": {"content": response.message}}
                     }))
-                    # Small delay to simulate streaming
-                    await asyncio.sleep(0.05)
                 
                 # Send final response
                 await websocket.send_text(json.dumps({
