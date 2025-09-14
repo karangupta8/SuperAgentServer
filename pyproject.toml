@@ -79,6 +79,13 @@ profile = "black"
 multi_line_output = 3
 line_length = 88
 
+[tool.flake8]
+max-line-length = 88
+extend-ignore = [
+    "E203", # whitespace before ':' (not PEP8 compliant, but black does it)
+    "W503", # line break before binary operator (black does this)
+]
+
 [tool.mypy]
 python_version = "3.8"
 warn_return_any = true
