@@ -72,6 +72,8 @@ python -m super_agent_server.server
 
 ## Step 4: Test the Agent
 
+> **Note:** Run the following test commands in a **new, separate terminal** while the server is running.
+
 ### Test via REST API
 
 ```bash

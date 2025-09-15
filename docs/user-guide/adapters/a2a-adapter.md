@@ -62,14 +62,14 @@ curl -X POST "http://localhost:8000/a2a/message" \
 
 ### Expected Response
 
-Your agent will process the message and return a standard response:
+Your agent will process the message and return a standard response. The exact message will depend on the agent you are running. If you are running the `SimpleChatAgent`, the response will be:
 
 ```json
 {
-  "message": "You said: 'Hello from another agent!'. That's interesting! Tell me more.",
+  "message": "Hello! How can I help you today? (Session: a2a-session-123)",
   "session_id": "a2a-session-123",
   "metadata": {
-    "processed_at": "example_agent",
+    "processed_at": "simple_agent",
     "input_length": 25,
     "source_protocol": "a2a"
   }

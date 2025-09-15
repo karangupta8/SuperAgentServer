@@ -82,6 +82,8 @@ python scripts/dev_runner.py
 
 ### Test the Agent
 
+> **Note:** Run the following test commands in a **new, separate terminal** while the server is running.
+
 ```bash
 curl -X POST "http://localhost:8000/agent/chat" \
      -H "Content-Type: application/json" \

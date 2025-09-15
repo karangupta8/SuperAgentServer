@@ -13,8 +13,8 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Add the project's 'src' directory to the Python path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+# Add the project root to the Python path to allow imports from 'src'
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from super_agent_server.server import app
 import uvicorn
