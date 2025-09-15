@@ -195,7 +195,6 @@ curl -X POST "http://localhost:8000/webhook/telegram" \
 >   }
 > } | ConvertTo-Json
 > Invoke-WebRequest -Uri "http://localhost:8000/webhook/telegram" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body2
-```
 
 ## 🛠️ Creating Custom Agents
 
