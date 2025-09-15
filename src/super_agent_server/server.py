@@ -271,25 +271,43 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                         }))
                         continue
 
+                    # Start event for both agent types
                     await websocket.send_text(json.dumps({
                         "event": "on_chat_model_start",
                         "data": {"chunk": {"content": ""}}
                     }))
 
-                    input_dict = {"input": message, "chat_history": chat_history}
+                    # Check if the agent supports LangChain-style streaming
+                    if hasattr(agent, 'agent_executor') and hasattr(agent.agent_executor, 'astream'):
+                        # Handle streaming LangChain agent
+                        input_dict = {"input": message, "chat_history": chat_history}
+                        async for chunk in agent.agent_executor.astream(input_dict):
+                            if "messages" in chunk:
+                                for message_chunk in chunk["messages"]:
+                                    content = getattr(message_chunk, "content", "")
+                                    if content:
+                                        await websocket.send_text(json.dumps({
+                                            "event": "on_chat_model_stream",
+                                            "data": {"chunk": {"content": content}}
+                                        }))
+                    else:
+                        # Handle non-streaming BaseAgent by simulating a stream
+                        logger.info("Agent does not support streaming, "
+                                    "falling back to standard process method.")
+                        agent_request = AgentRequest(
+                            message=message,
+                            session_id=None  # Session can be added if needed
+                        )
+                        response = await agent.process(agent_request)
+                        
+                        # Send the full response as a single stream chunk
+                        if response.message:
+                            await websocket.send_text(json.dumps({
+                                "event": "on_chat_model_stream",
+                                "data": {"chunk": {"content": response.message}}
+                            }))
 
-                    async for chunk in agent.agent_executor.astream(input_dict):
-                        if "messages" in chunk:
-                            for message_chunk in chunk["messages"]:
-                                content = getattr(message_chunk, "content", "")
-                                if content:
-                                    await websocket.send_text(json.dumps({
-                                        "event": "on_chat_model_stream",
-                                        "data": {
-                                            "chunk": {"content": content}
-                                        }
-                                    }))
-
+                    # End event for both agent types
                     await websocket.send_text(json.dumps({
                         "event": "on_chat_model_end",
                         "data": {}

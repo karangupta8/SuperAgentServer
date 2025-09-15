@@ -248,7 +248,6 @@ The current implementation provides a solid foundation with basic HTTP endpoints
 ### Protocol Implementation
 - **A2A Protocol**: Implement complete discovery mechanisms and secure handshake protocols for agent-to-agent communication
 - **ACP Integration**: Integrate with real message brokers like RabbitMQ as outlined in the ACP adapter documentation for robust agent communication
-- **Enhanced MCP**: Expand Model Context Protocol support with advanced tool discovery and context management
 
 ### Security & Authorization
 - **Endpoint Authentication**: Add comprehensive authorization mechanisms for all adapter endpoints

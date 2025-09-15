@@ -4,11 +4,16 @@ Simple example of creating and using a custom agent.
 
 import asyncio
 import sys
+from dotenv import find_dotenv, load_dotenv
 from pathlib import Path
 
 # Add the project's 'src' directory to the Python path to allow running this
 # script directly
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
+# Load environment variables from the .env file in the project root.
+# This is crucial for making the OPENAI_API_KEY available.
+load_dotenv(find_dotenv())
 
 from super_agent_server.agent.base_agent import (
     AgentRequest,

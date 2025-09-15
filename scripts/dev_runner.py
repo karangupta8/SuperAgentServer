@@ -5,6 +5,7 @@ Simple run script for SuperAgentServer.
 
 import os
 import sys
+import argparse
 import asyncio
 from pathlib import Path
 from dotenv import load_dotenv
@@ -22,6 +23,16 @@ import uvicorn
 def main():
     """Main entry point."""
     print("🚀 Starting SuperAgentServer...")
+
+    parser = argparse.ArgumentParser(description="Run the SuperAgentServer for development.")
+    parser.add_argument(
+        "agent_app",
+        nargs="?",
+        default="super_agent_server.server:app",
+        help="The agent app to run, in 'module:variable' format. "
+             "Defaults to 'super_agent_server.server:app' (which loads ExampleAgent)."
+    )
+    args = parser.parse_args()
     print("=" * 50)
 
     # Check for minimum Python version
@@ -70,6 +81,7 @@ def main():
     log_level = os.getenv("LOG_LEVEL", "info").lower()
     
     print(f"🌐 Server: http://{host}:{port}")
+    print(f"📦 Agent App: {args.agent_app}")
     print(f"📚 API Docs: http://{host}:{port}/docs")
     print(f"🔧 Debug Mode: {debug}")
     print(f"📝 Log Level: {log_level}")
@@ -92,7 +104,7 @@ def main():
     # Run the server
     try:
         uvicorn.run(
-            "super_agent_server.server:app",
+            args.agent_app,
             host=host,
             port=port,
             reload=debug,
@@ -100,11 +112,14 @@ def main():
             access_log=True
         )
     except KeyboardInterrupt:
-        print("\n👋 Server stopped by user")
+        # This is expected when pressing Ctrl+C, so we don't need to print an error.
+        # The 'finally' block will handle the exit message.
+        pass
     except Exception as e:
         print(f"\n❌ Server error: {e}")
         sys.exit(1)
-
+    finally:
+        print("\n👋 Server has been shut down.")
 
 if __name__ == "__main__":
     main()

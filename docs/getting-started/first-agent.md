@@ -122,9 +122,6 @@ async def main():
     # Create your agent instance
     agent = MyFirstAgent()
     
-    # Initialize the agent
-    await agent.initialize()
-    
     # Create the FastAPI app with your agent
     app = create_app(agent)
     
