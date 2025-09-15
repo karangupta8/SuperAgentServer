@@ -160,7 +160,7 @@ curl -X POST "http://localhost:8000/mcp/tools/call" \
 
 ```bash
 # Generic webhook
-curl -X POST "http://localhost:8000/webhook/webhook" \
+curl -X POST "http://localhost:8000/webhook" \
      -H "Content-Type: application/json" \
      -d '{
        "message": "Hello from webhook!",
@@ -184,7 +184,7 @@ curl -X POST "http://localhost:8000/webhook/telegram" \
 > ```powershell
 > # Generic webhook
 > $body1 = @{ message = "Hello from webhook!"; user_id = "user123"; platform = "custom" } | ConvertTo-Json
-> Invoke-WebRequest -Uri "http://localhost:8000/webhook/webhook" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body1
+> Invoke-WebRequest -Uri "http://localhost:8000/webhook" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body1
 >
 > # Telegram webhook
 > $body2 = @{
