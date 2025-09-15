@@ -241,6 +241,48 @@ app = create_app(MyCustomAgent())
 - **🌐 WebSocket** - Real-time streaming chat
 
 
+## 🔮 Future Improvements
+
+The current implementation provides a solid foundation with basic HTTP endpoints for testing and development. Future enhancements will focus on building out full protocol specifications and adding enterprise-grade features:
+
+### Protocol Implementation
+- **A2A Protocol**: Implement complete discovery mechanisms and secure handshake protocols for agent-to-agent communication
+- **ACP Integration**: Integrate with real message brokers like RabbitMQ as outlined in the ACP adapter documentation for robust agent communication
+- **Enhanced MCP**: Expand Model Context Protocol support with advanced tool discovery and context management
+
+### Security & Authorization
+- **Endpoint Authentication**: Add comprehensive authorization mechanisms for all adapter endpoints
+- **API Key Management**: Implement secure API key generation and validation
+- **Rate Limiting**: Add configurable rate limiting for production deployments
+
+
+
+## 🔍 Comparable Projects
+
+While SuperAgentServer provides a unique universal adapter approach, several projects in the ecosystem offer related functionality:
+
+### **Pydantic AI**
+- Provides out-of-the-box A2A and MCP adapters for AI agent integration
+- Focuses on type-safe AI development with Pydantic models
+
+### **FuseBase**
+- A B2B SaaS platform supporting **Model Context Protocol (MCP)** for AI agent tool integration
+- Specializes in data source connectivity rather than multi-protocol agent deployment
+- [Wikipedia](https://en.wikipedia.org/wiki/FuseBase)
+
+### **Inference Gateway**
+- Open-source middleware unifying multiple LLM providers with **MCP** and **A2A** processing layers
+- Supports protocol bypassing via headers but lacks comprehensive platform integrations
+- [GitHub](https://github.com/inference-gateway/inference-gateway)
+
+### **AgentMaster**
+- Research framework combining **A2A** and **MCP** for multi-agent coordination in complex multimodal tasks
+- Focuses on agent coordination and data retrieval rather than developer tooling
+- [arXiv](https://arxiv.org/abs/2507.21105)
+
+**SuperAgentServer** distinguishes itself by providing a comprehensive, production-ready solution that unifies multiple protocols and platforms in a single, easy-to-use package for LangChain agents.
+
+
 ## 🔧 Configuration
 
 ### Environment Variables
