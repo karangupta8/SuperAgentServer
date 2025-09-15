@@ -1,6 +1,8 @@
 """
 Example LangChain agent implementation.
 """
+import ast
+import operator
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -17,6 +19,76 @@ from .base_agent import AgentRequest, AgentResponse, BaseAgent
 # This is a better practice than passing it in the constructor.
 if os.getenv("OPENAI_API_KEY", None) is None:
     raise ValueError("OPENAI_API_KEY environment variable not set.")
+
+
+def safe_eval_math(expression: str) -> float:
+    """
+    Safely evaluate mathematical expressions without code injection risks.
+    
+    Only allows basic arithmetic operations: +, -, *, /, (, ), and numbers.
+    Prevents execution of arbitrary Python code.
+    
+    Args:
+        expression: Mathematical expression as string
+        
+    Returns:
+        Result of the mathematical expression
+        
+    Raises:
+        ValueError: If expression contains invalid characters or operations
+        ZeroDivisionError: If expression results in division by zero
+    """
+    # Define allowed operators for safe evaluation
+    allowed_operators = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.USub: operator.neg,  # Unary minus (e.g., -5)
+    }
+    
+    def _eval(node):
+        """Recursively evaluate AST nodes."""
+        if isinstance(node, ast.Constant):  # Python 3.8+ (numbers, strings, etc.)
+            if isinstance(node.value, (int, float)):
+                return node.value
+            else:
+                raise ValueError(f"Only numeric constants allowed, got: {type(node.value)}")
+        elif isinstance(node, ast.Num):  # Python < 3.8 compatibility
+            return node.n
+        elif isinstance(node, ast.BinOp):
+            left = _eval(node.left)
+            right = _eval(node.right)
+            if type(node.op) not in allowed_operators:
+                raise ValueError(f"Operator {type(node.op).__name__} not allowed")
+            return allowed_operators[type(node.op)](left, right)
+        elif isinstance(node, ast.UnaryOp):
+            operand = _eval(node.operand)
+            if type(node.op) not in allowed_operators:
+                raise ValueError(f"Unary operator {type(node.op).__name__} not allowed")
+            return allowed_operators[type(node.op)](operand)
+        else:
+            raise ValueError(f"Unsupported operation: {type(node).__name__}")
+    
+    try:
+        # Parse the expression into an AST
+        tree = ast.parse(expression, mode='eval')
+        
+        # Validate that the root is an expression (not a statement)
+        if not isinstance(tree.body, (ast.Expression, ast.Constant, ast.Num, ast.BinOp, ast.UnaryOp)):
+            raise ValueError("Invalid expression structure")
+        
+        # Evaluate the expression safely
+        result = _eval(tree.body)
+        
+        # Ensure result is a number
+        if not isinstance(result, (int, float)):
+            raise ValueError("Expression must evaluate to a number")
+        
+        return result
+        
+    except (SyntaxError, ValueError, ZeroDivisionError) as e:
+        raise ValueError(f"Invalid mathematical expression: {e}")
 
 
 class ExampleAgent(BaseAgent):
@@ -53,15 +125,19 @@ class ExampleAgent(BaseAgent):
         def calculate(expression: str) -> str:
             """Calculate a mathematical expression safely."""
             try:
-                # Simple evaluation for basic math
-                allowed_chars = set("0123456789+-*/.() ")
-                if all(c in allowed_chars for c in expression):
-                    result = eval(expression)
-                    return str(result)
-                else:
-                    return "Error: Invalid characters in expression"
-            except Exception as e:
+                # Validate input
+                if not expression or not expression.strip():
+                    return "Error: Empty expression"
+                
+                # Use safe evaluation instead of eval()
+                result = safe_eval_math(expression.strip())
+                return str(result)
+                
+            except ValueError as e:
                 return f"Error: {str(e)}"
+            except Exception as e:
+                # Log the error but don't expose internal details
+                return "Error: Unable to calculate expression"
 
         tools = [get_current_time, calculate]
 
@@ -116,8 +192,9 @@ class ExampleAgent(BaseAgent):
             )
 
         except Exception as e:
+            # Don't expose internal error details to users
             return AgentResponse(
-                message=f"Error processing request: {str(e)}",
+                message="I'm sorry, I encountered an error processing your request. Please try again.",
                 session_id=request.session_id,
                 metadata={
                     "error": True,

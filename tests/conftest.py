@@ -30,6 +30,18 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_broker: mark test as requiring a running message broker"
     )
+    config.addinivalue_line(
+        "markers", "performance: mark test as performance test"
+    )
+    config.addinivalue_line(
+        "markers", "integration: mark test as integration test"
+    )
+    config.addinivalue_line(
+        "markers", "security: mark test as security test"
+    )
+    config.addinivalue_line(
+        "markers", "slow: mark test as slow running"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -91,6 +103,59 @@ def mock_openai_key():
     return "test-key-12345"
 
 
+@pytest.fixture
+def performance_test_data():
+    """Sample data for performance testing."""
+    return {
+        "small_message": "Performance test",
+        "medium_message": "A" * 1000,  # 1KB message
+        "large_message": "A" * 10000,  # 10KB message
+        "concurrent_requests": 10,
+        "batch_size": 5,
+    }
+
+
+@pytest.fixture
+def security_test_data():
+    """Sample data for security testing."""
+    return {
+        "malicious_inputs": [
+            "__import__('os').system('echo hacked')",
+            "exec('import os; os.system(\"echo hacked\")')",
+            "open('/etc/passwd').read()",
+            "eval('print(1)')",
+            "<script>alert('xss')</script>",
+            "'; DROP TABLE users; --",
+        ],
+        "valid_inputs": [
+            "Hello, world!",
+            "What time is it?",
+            "2 + 3",
+            "Calculate 10 * 5",
+        ]
+    }
+
+
+@pytest.fixture
+def integration_test_scenarios():
+    """Sample scenarios for integration testing."""
+    return {
+        "chat_workflow": {
+            "steps": [
+                {"endpoint": "/health", "method": "GET"},
+                {"endpoint": "/agent/schema", "method": "GET"},
+                {"endpoint": "/agent/chat", "method": "POST", "data": {"message": "Test", "session_id": "integration-test"}},
+            ]
+        },
+        "adapter_workflows": [
+            {"name": "mcp", "endpoint": "/mcp/", "data": {"method": "tools/list"}},
+            {"name": "webhook", "endpoint": "/webhook/", "data": {"message": "Test", "user_id": "test", "platform": "test"}},
+            {"name": "a2a", "endpoint": "/a2a/message", "data": {"sender_agent_id": "test", "message": "Test"}},
+            {"name": "acp", "endpoint": "/acp/message", "data": {"sender_agent_id": "test", "message": "Test"}},
+        ]
+    }
+
+
 def _is_broker_running():
     """Check if the message broker is running and accessible."""
     acp_enabled = os.getenv("ACP_ENABLED", "True").lower() == "true"
@@ -118,3 +183,18 @@ def _skip_by_marker(request):
     if request.node.get_closest_marker("requires_broker"):
         if not _is_broker_running():
             pytest.skip("ACP message broker is not running or not configured")
+    
+    # Skip performance tests in CI or when explicitly disabled
+    if request.node.get_closest_marker("performance"):
+        if os.getenv("SKIP_PERFORMANCE_TESTS", "false").lower() == "true":
+            pytest.skip("Performance tests disabled")
+    
+    # Skip integration tests when explicitly disabled
+    if request.node.get_closest_marker("integration"):
+        if os.getenv("SKIP_INTEGRATION_TESTS", "false").lower() == "true":
+            pytest.skip("Integration tests disabled")
+    
+    # Skip slow tests in fast test runs
+    if request.node.get_closest_marker("slow"):
+        if os.getenv("SKIP_SLOW_TESTS", "false").lower() == "true":
+            pytest.skip("Slow tests disabled")

@@ -174,15 +174,27 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
             response = await agent(request)
             return response
         except Exception as e:
-            logger.error(f"Error in agent chat: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            # Log the full error for debugging
+            logger.error(f"Error in agent chat: {e}", exc_info=True)
+            # Return generic error message to prevent information disclosure
+            raise HTTPException(
+                status_code=500, 
+                detail="An error occurred while processing your request. Please try again."
+            )
 
     @app.get("/agent/schema")
     async def get_agent_schema(
         agent: BaseAgent = Depends(dependencies.get_agent)
     ):
         """Get the agent's schema."""
-        return agent.get_schema()
+        try:
+            return agent.get_schema()
+        except Exception as e:
+            logger.error(f"Error getting agent schema: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=500,
+                detail="Unable to retrieve agent schema. Please try again later."
+            )
 
     @app.get("/manifests", tags=["Adapters"])
     async def get_all_manifests(
@@ -309,12 +321,46 @@ def create_app(agent_instance: Optional[BaseAgent] = None) -> FastAPI:
                 logger.error(f"WebSocket error: {e}")
 
     @app.exception_handler(Exception)
-    async def global_exception_handler(request, exc):
-        """Global exception handler."""
-        logger.error(f"Unhandled exception: {exc}")
+    async def global_exception_handler(request: Request, exc: Exception):
+        """Global exception handler that prevents information disclosure."""
+        # Log the full exception for debugging purposes
+        logger.error(f"Unhandled exception in {request.method} {request.url}: {exc}", exc_info=True)
+        
+        # Determine appropriate response based on exception type
+        if isinstance(exc, HTTPException):
+            # Re-raise HTTPExceptions as-is (they already have appropriate messages)
+            raise exc
+        else:
+            # For unexpected exceptions, return generic error message
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "detail": "An internal server error occurred. Please try again later.",
+                    "error_id": f"ERR_{id(exc) % 10000:04d}"  # Provide error ID for tracking
+                }
+            )
+
+    @app.exception_handler(ValidationError)
+    async def validation_exception_handler(request: Request, exc: ValidationError):
+        """Handle Pydantic validation errors."""
+        logger.warning(f"Validation error in {request.method} {request.url}: {exc}")
         return JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error"}
+            status_code=422,
+            content={
+                "detail": "Invalid request format. Please check your input and try again.",
+                "errors": exc.errors() if hasattr(exc, 'errors') else []
+            }
+        )
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        """Handle HTTP exceptions with consistent formatting."""
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "detail": exc.detail,
+                "error_id": f"HTTP_{exc.status_code}_{id(exc) % 1000:03d}"
+            }
         )
 
     return app
